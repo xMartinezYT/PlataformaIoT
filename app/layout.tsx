@@ -2,10 +2,6 @@ import type React from "react"
 import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
-import { WebSocketProvider } from "@/contexts/websocket-context"
-import { SessionProvider } from "next-auth/react"
-import { AuthProvider } from "@/contexts/auth-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -22,15 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className={inter.className}>
-        <SessionProvider>
-          <AuthProvider>
-            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-              <WebSocketProvider>{children}</WebSocketProvider>
-            </ThemeProvider>
-          </AuthProvider>
-        </SessionProvider>
-      </body>
+      <body className={inter.className}>{children}</body>
     </html>
   )
 }

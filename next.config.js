@@ -2,9 +2,6 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  experimental: {
-    serverActions: true,
-  },
   eslint: {
     // Ignorar errores de ESLint durante la compilación
     ignoreDuringBuilds: true,

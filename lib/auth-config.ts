@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma"
 import { verifyPassword } from "@/lib/auth"
 import type { Role } from "@prisma/client"
 
-// Definimos las opciones de autenticación en un archivo separado
+// Exportación nombrada de authOptions
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
