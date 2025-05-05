@@ -1,10 +1,10 @@
-import NextAuth from "next-auth"
+import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import prisma from "@/lib/prisma"
 import { verifyPassword } from "@/lib/auth"
 import type { Role } from "@prisma/client"
-import type { NextAuthOptions } from "next-auth"
 
+// Definimos las opciones de autenticación en un archivo separado
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -33,13 +33,17 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Log activity
-        await prisma.activity.create({
-          data: {
-            userId: user.id,
-            action: "login",
-            details: "Inicio de sesión exitoso",
-          },
-        })
+        try {
+          await prisma.activity.create({
+            data: {
+              userId: user.id,
+              action: "login",
+              details: "Inicio de sesión exitoso",
+            },
+          })
+        } catch (error) {
+          console.error("Error logging activity:", error)
+        }
 
         return {
           id: user.id,
@@ -77,5 +81,3 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 }
-
-export default NextAuth(authOptions)

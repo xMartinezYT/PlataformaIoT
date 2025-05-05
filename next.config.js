@@ -6,9 +6,11 @@ const nextConfig = {
     serverActions: true,
   },
   eslint: {
+    // Ignorar errores de ESLint durante la compilación
     ignoreDuringBuilds: true,
   },
   typescript: {
+    // Ignorar errores de TypeScript durante la compilación
     ignoreBuildErrors: true,
   },
   images: {

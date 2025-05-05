@@ -64,11 +64,11 @@
     "next-auth": "latest",
     "ai": "latest",
     "@ai-sdk/xai": "latest",
-    "@prisma/client": "latest",
     "socket.io-client": "latest",
     "http": "latest",
     "socket.io": "latest",
-    "bcryptjs": "latest"
+    "bcryptjs": "latest",
+    "@prisma/client": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
