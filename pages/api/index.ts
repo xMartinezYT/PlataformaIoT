@@ -1,4 +1,3 @@
-// Este archivo es solo para asegurar que la carpeta api existe
 import type { NextApiRequest, NextApiResponse } from "next"
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {

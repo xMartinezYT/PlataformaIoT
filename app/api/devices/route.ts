@@ -12,7 +12,6 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Resto del código...
     const devices = await prisma.device.findMany({
       include: {
         category: true,

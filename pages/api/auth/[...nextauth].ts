@@ -1,10 +1,11 @@
-import NextAuth, { type NextAuthOptions } from "next-auth"
+import NextAuth from "next-auth"
+import type { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import prisma from "@/lib/prisma"
 import { verifyPassword } from "@/lib/auth"
 import type { Role } from "@prisma/client"
 
-// Exportación nombrada de authOptions
+// Exportación nombrada explícita de authOptions
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -31,15 +32,6 @@ export const authOptions: NextAuthOptions = {
         if (!isValid) {
           return null
         }
-
-        // Log activity
-        await prisma.activity.create({
-          data: {
-            userId: user.id,
-            action: "login",
-            details: "Inicio de sesión exitoso",
-          },
-        })
 
         return {
           id: user.id,
