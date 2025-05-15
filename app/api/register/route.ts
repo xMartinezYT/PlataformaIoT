@@ -4,20 +4,9 @@ import { hashPassword } from "@/lib/auth"
 
 export async function POST(request: Request) {
   try {
-    // Verificar que la solicitud tenga un cuerpo
-    const body = await request.text()
-    if (!body) {
-      return NextResponse.json({ error: "No se proporcionaron datos" }, { status: 400 })
-    }
-
-    // Intentar parsear el JSON
-    let data
-    try {
-      data = JSON.parse(body)
-    } catch (e) {
-      console.error("Error al parsear JSON:", e, "Body:", body)
-      return NextResponse.json({ error: "Formato de datos inválido" }, { status: 400 })
-    }
+    // Obtener los datos de la solicitud
+    const data = await request.json()
+    console.log("Datos recibidos:", data)
 
     const { name, email, password } = data
 

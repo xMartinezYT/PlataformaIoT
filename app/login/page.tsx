@@ -8,8 +8,10 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
+  const [formData, setFormData] = useState({
+    email: "",
+    password: "",
+  })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
@@ -24,16 +26,27 @@ export default function LoginPage() {
     }
   }, [searchParams])
 
+  // Manejar cambios en los campos del formulario
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
 
     try {
+      console.log("Iniciando sesión con:", formData.email)
+
       const result = await signIn("credentials", {
         redirect: false,
-        email,
-        password,
+        email: formData.email,
+        password: formData.password,
       })
 
       if (result?.error) {
@@ -71,9 +84,10 @@ export default function LoginPage() {
             </label>
             <input
               id="email"
+              name="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
@@ -86,9 +100,10 @@ export default function LoginPage() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formData.password}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}

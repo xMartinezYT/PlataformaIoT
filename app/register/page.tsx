@@ -7,14 +7,25 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 export default function RegisterPage() {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+  })
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const router = useRouter()
+
+  // Manejar cambios en los campos del formulario
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,28 +33,34 @@ export default function RegisterPage() {
     setError("")
 
     // Validaciones básicas
-    if (!name || !email || !password) {
+    if (!formData.name || !formData.email || !formData.password) {
       setError("Todos los campos son obligatorios")
       setLoading(false)
       return
     }
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setError("Las contraseñas no coinciden")
       setLoading(false)
       return
     }
 
     try {
+      console.log("Enviando datos:", {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      })
+
       const response = await fetch("/api/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name,
-          email,
-          password,
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
         }),
       })
 
@@ -95,9 +112,10 @@ export default function RegisterPage() {
             </label>
             <input
               id="name"
+              name="name"
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={formData.name}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading || success}
@@ -110,9 +128,10 @@ export default function RegisterPage() {
             </label>
             <input
               id="email"
+              name="email"
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={formData.email}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading || success}
@@ -125,9 +144,10 @@ export default function RegisterPage() {
             </label>
             <input
               id="password"
+              name="password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={formData.password}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading || success}
@@ -140,9 +160,10 @@ export default function RegisterPage() {
             </label>
             <input
               id="confirmPassword"
+              name="confirmPassword"
               type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              value={formData.confirmPassword}
+              onChange={handleChange}
               required
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading || success}
