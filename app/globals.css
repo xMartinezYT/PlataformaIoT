@@ -108,4 +108,9 @@ body {
   body {
     @apply bg-background text-foreground;
   }
+  input,
+  textarea,
+  select {
+    @apply text-gray-900;
+  }
 }
