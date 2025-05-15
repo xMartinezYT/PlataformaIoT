@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/pages/api/auth/[...nextauth]"
+import { authOptions } from "@/lib/auth-config"
 import { hashPassword, excludePassword } from "@/lib/auth"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
