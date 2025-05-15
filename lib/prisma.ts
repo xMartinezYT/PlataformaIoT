@@ -5,12 +5,17 @@ declare global {
   var prisma: PrismaClient | undefined
 }
 
+// Creamos una instancia de PrismaClient
+const prismaClientSingleton = () => {
+  return new PrismaClient()
+}
+
 // Exportamos una instancia de PrismaClient
-export const prisma = global.prisma || new PrismaClient()
+const prisma = globalThis.prisma ?? prismaClientSingleton()
 
 // En desarrollo, guardamos la instancia en la variable global para evitar múltiples instancias
 if (process.env.NODE_ENV !== "production") {
-  global.prisma = prisma
+  globalThis.prisma = prisma
 }
 
 export default prisma
