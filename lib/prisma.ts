@@ -1,21 +1,14 @@
 import { PrismaClient } from "@prisma/client"
 
-// Declaramos una variable global para PrismaClient
-declare global {
-  var prisma: PrismaClient | undefined
-}
+// Evitar múltiples instancias de PrismaClient en desarrollo
+const globalForPrisma = global as unknown as { prisma: PrismaClient }
 
-// Creamos una instancia de PrismaClient
-const prismaClientSingleton = () => {
-  return new PrismaClient()
-}
+export const prisma =
+  globalForPrisma.prisma ||
+  new PrismaClient({
+    log: ["query", "error", "warn"],
+  })
 
-// Exportamos una instancia de PrismaClient
-const prisma = globalThis.prisma ?? prismaClientSingleton()
-
-// En desarrollo, guardamos la instancia en la variable global para evitar múltiples instancias
-if (process.env.NODE_ENV !== "production") {
-  globalThis.prisma = prisma
-}
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
 
 export default prisma

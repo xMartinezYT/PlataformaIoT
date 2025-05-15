@@ -1,7 +1,18 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth-config"
+
+// Importamos prisma de manera dinámica para evitar problemas durante la compilación
+let prisma: any
+
+// Función para obtener el cliente de Prisma
+async function getPrisma() {
+  if (!prisma) {
+    const { default: prismaModule } = await import("@/lib/prisma")
+    prisma = prismaModule
+  }
+  return prisma
+}
 
 export async function GET(request: Request) {
   try {
@@ -31,7 +42,8 @@ export async function GET(request: Request) {
       whereClause.userId = session.user.id
     }
 
-    const activities = await prisma.activity.findMany({
+    const db = await getPrisma()
+    const activities = await db.activity.findMany({
       where: whereClause,
       include: {
         user: {
@@ -63,8 +75,9 @@ export async function POST(request: Request) {
     }
 
     const data = await request.json()
+    const db = await getPrisma()
 
-    const activity = await prisma.activity.create({
+    const activity = await db.activity.create({
       data: {
         ...data,
         userId: session.user.id,
