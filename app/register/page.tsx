@@ -3,145 +3,87 @@
 import type React from "react"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { Factory } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 
 export default function RegisterPage() {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const { toast } = useToast()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setLoading(true)
-    setError("")
+    setIsLoading(true)
 
-    // Validar que las contraseñas coincidan
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden")
-      setLoading(false)
-      return
-    }
-
-    try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-        }),
+    // Simulación de registro
+    setTimeout(() => {
+      setIsLoading(false)
+      toast({
+        title: "Registro exitoso",
+        description: "Su cuenta ha sido creada. Por favor inicie sesión.",
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || "Error al registrar usuario")
-      }
-
-      // Redirigir a la página de inicio de sesión
-      router.push("/login?registered=true")
-    } catch (error: any) {
-      console.error("Error al registrar:", error)
-      setError(error.message || "Error al registrar usuario")
-      setLoading(false)
-    }
+      router.push("/login")
+    }, 1500)
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-6">Crear Cuenta</h1>
-
-        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Nombre
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="space-y-1 text-center">
+          <div className="flex justify-center mb-2">
+            <Factory className="h-10 w-10 text-primary" />
           </div>
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Correo Electrónico
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-              Confirmar Contraseña
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-green-500 text-white py-2 px-4 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50"
-          >
-            {loading ? "Registrando..." : "Registrarse"}
-          </button>
+          <CardTitle className="text-2xl font-bold">Crear cuenta</CardTitle>
+          <CardDescription>Ingrese sus datos para registrarse en el sistema</CardDescription>
+        </CardHeader>
+        <form onSubmit={handleSubmit}>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">Nombre</Label>
+                <Input id="firstName" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Apellido</Label>
+                <Input id="lastName" required />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">Correo electrónico</Label>
+              <Input id="email" type="email" placeholder="ejemplo@empresa.com" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="company">Empresa</Label>
+              <Input id="company" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <Input id="password" type="password" required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirmar contraseña</Label>
+              <Input id="confirmPassword" type="password" required />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Registrando..." : "Registrarse"}
+            </Button>
+            <div className="text-center text-sm">
+              ¿Ya tiene una cuenta?{" "}
+              <Link href="/login" className="text-primary hover:underline">
+                Iniciar sesión
+              </Link>
+            </div>
+          </CardFooter>
         </form>
-
-        <div className="mt-4 text-center">
-          <p className="text-sm text-gray-600">
-            ¿Ya tienes una cuenta?{" "}
-            <a href="/login" className="text-blue-500 hover:text-blue-700">
-              Inicia sesión
-            </a>
-          </p>
-        </div>
-
-        <div className="mt-6 text-center">
-          <a href="/" className="text-sm text-blue-500 hover:text-blue-700">
-            Volver al inicio
-          </a>
-        </div>
-      </div>
+      </Card>
     </div>
   )
 }
