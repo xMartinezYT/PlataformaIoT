@@ -2,87 +2,123 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { signIn } from "next-auth/react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { Factory } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
-  const [isLoading, setIsLoading] = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const router = useRouter()
-  const { toast } = useToast()
+  const searchParams = useSearchParams()
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    // Verificar si el usuario viene de un registro exitoso
+    const registered = searchParams?.get("registered")
+    if (registered === "true") {
+      setRegistrationSuccess(true)
+    }
+  }, [searchParams])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
+    setLoading(true)
+    setError("")
 
-    // Simulación de autenticación
-    setTimeout(() => {
-      setIsLoading(false)
-      // Almacenar información de usuario en localStorage
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: "1",
-          name: "Admin Usuario",
-          email: "admin@industrial-iot.com",
-          role: "admin",
-        }),
-      )
-
-      toast({
-        title: "Inicio de sesión exitoso",
-        description: "Bienvenido a la plataforma de gestión industrial IoT",
+    try {
+      const result = await signIn("credentials", {
+        redirect: false,
+        email,
+        password,
       })
 
-      router.push("/")
-    }, 1500)
+      if (result?.error) {
+        setError("Credenciales inválidas")
+        setLoading(false)
+        return
+      }
+
+      // Login exitoso, redirigir al dashboard
+      router.push("/dashboard")
+    } catch (error) {
+      console.error("Error al iniciar sesión:", error)
+      setError("Error al iniciar sesión")
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-2">
-            <Factory className="h-10 w-10 text-primary" />
+    <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
+        <h1 className="text-2xl font-bold text-center mb-6">Iniciar Sesión</h1>
+
+        {registrationSuccess && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            ¡Registro exitoso! Ahora puedes iniciar sesión.
           </div>
-          <CardTitle className="text-2xl font-bold">IndustrialIoT</CardTitle>
-          <CardDescription>Ingrese sus credenciales para acceder al sistema</CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
-              <Input id="email" type="email" placeholder="ejemplo@empresa.com" required />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Contraseña</Label>
-                <Link href="/reset-password" className="text-sm text-primary hover:underline">
-                  ¿Olvidó su contraseña?
-                </Link>
-              </div>
-              <Input id="password" type="password" required />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
-            </Button>
-            <div className="text-center text-sm">
-              ¿No tiene una cuenta?{" "}
-              <Link href="/register" className="text-primary hover:underline">
-                Registrarse
-              </Link>
-            </div>
-          </CardFooter>
+        )}
+
+        {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">{error}</div>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Correo Electrónico
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Contraseña
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={loading}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            {loading ? "Iniciando sesión..." : "Iniciar Sesión"}
+          </button>
         </form>
-      </Card>
+
+        <div className="mt-4 text-center">
+          <p className="text-sm text-gray-600">
+            ¿No tienes una cuenta?{" "}
+            <Link href="/register" className="text-blue-500 hover:text-blue-700">
+              Regístrate
+            </Link>
+          </p>
+        </div>
+
+        <div className="mt-6 text-center">
+          <Link href="/" className="text-sm text-blue-500 hover:text-blue-700">
+            Volver al inicio
+          </Link>
+        </div>
+      </div>
     </div>
   )
 }
