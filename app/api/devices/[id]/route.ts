@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth-config"
+import { notifyUserAboutDeviceStatus } from "@/lib/notification-service"
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -60,6 +61,17 @@ export async function PUT(request: Request, { params }: { params: { id: string }
 
     const data = await request.json()
 
+    // Obtener el dispositivo actual para comparar el estado
+    const currentDevice = await prisma.device.findUnique({
+      where: { id: params.id },
+      select: { status: true, userId: true, name: true },
+    })
+
+    if (!currentDevice) {
+      return NextResponse.json({ error: "Device not found" }, { status: 404 })
+    }
+
+    // Actualizar el dispositivo
     const device = await prisma.device.update({
       where: { id: params.id },
       data,
@@ -73,6 +85,38 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         details: `Actualizado dispositivo: ${device.name}`,
       },
     })
+
+    // Enviar notificación si el estado cambió a ERROR u OFFLINE
+    if (data.status && data.status !== currentDevice.status && (data.status === "ERROR" || data.status === "OFFLINE")) {
+      try {
+        // Notificar al propietario del dispositivo
+        if (currentDevice.userId) {
+          await notifyUserAboutDeviceStatus(currentDevice.userId, params.id, device.name, data.status)
+        }
+
+        // Notificar a administradores y managers para estados críticos
+        const admins = await prisma.user.findMany({
+          where: {
+            role: {
+              in: ["ADMIN", "MANAGER"],
+            },
+          },
+          select: {
+            id: true,
+          },
+        })
+
+        for (const admin of admins) {
+          // Evitar duplicados si el propietario es admin/manager
+          if (admin.id !== currentDevice.userId) {
+            await notifyUserAboutDeviceStatus(admin.id, params.id, device.name, data.status)
+          }
+        }
+      } catch (notificationError) {
+        console.error("Error al enviar notificaciones de estado de dispositivo:", notificationError)
+        // No fallamos la actualización del dispositivo si falla la notificación
+      }
+    }
 
     return NextResponse.json(device)
   } catch (error) {

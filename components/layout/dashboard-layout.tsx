@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import Link from "next/link"
+import { NotificationBell } from "@/components/notifications/notification-bell"
 
 export default function DashboardLayout({
   children,
@@ -72,10 +73,21 @@ export default function DashboardLayout({
                 <Link href="/scada" className="px-3 py-2 rounded-md text-sm font-medium text-gray-900 hover:bg-gray-50">
                   SCADA
                 </Link>
+                <Link
+                  href="/settings/notifications"
+                  className="px-3 py-2 rounded-md text-sm font-medium text-gray-900 hover:bg-gray-50"
+                >
+                  Notificaciones
+                </Link>
               </nav>
             </div>
             <div className="flex items-center">
               <div className="hidden md:ml-4 md:flex-shrink-0 md:flex md:items-center">
+                {/* Notification Bell */}
+                <div className="mr-4">
+                  <NotificationBell />
+                </div>
+
                 <div className="ml-3 relative">
                   <div className="flex items-center">
                     <span className="text-sm font-medium text-gray-700 mr-2">

@@ -23,6 +23,7 @@ export default function LoginPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
+  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -31,6 +32,12 @@ export default function LoginPage() {
     const registered = searchParams?.get("registered")
     if (registered === "true") {
       setRegistrationSuccess(true)
+    }
+
+    // Verificar si el usuario viene de un restablecimiento de contraseña exitoso
+    const reset = searchParams?.get("reset")
+    if (reset === "true") {
+      setPasswordResetSuccess(true)
     }
   }, [searchParams])
 
@@ -178,6 +185,18 @@ export default function LoginPage() {
           </div>
         )}
 
+        {/* Mensaje de restablecimiento de contraseña exitoso - Accesible */}
+        {passwordResetSuccess && (
+          <div
+            className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 flex items-center"
+            role="status"
+            aria-live="polite"
+          >
+            <CheckCircle className="h-5 w-5 mr-2" aria-hidden="true" />
+            ¡Contraseña restablecida con éxito! Ahora puedes iniciar sesión con tu nueva contraseña.
+          </div>
+        )}
+
         {/* Alerta de error - Accesible */}
         {error && (
           <div
@@ -262,6 +281,13 @@ export default function LoginPage() {
                 {validation.password.message}
               </p>
             )}
+          </div>
+
+          {/* Enlace a recuperación de contraseña */}
+          <div className="text-right">
+            <Link href="/forgot-password" className="text-sm text-blue-500 hover:text-blue-700">
+              ¿Olvidaste tu contraseña?
+            </Link>
           </div>
 
           <button

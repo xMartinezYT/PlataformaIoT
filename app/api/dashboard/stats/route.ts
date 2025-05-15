@@ -52,6 +52,7 @@ export async function GET() {
             id: true,
             name: true,
             serialNumber: true,
+            status: true,
           },
         },
       },
@@ -119,6 +120,7 @@ export async function GET() {
 
       if (!readingsByDevice[deviceId]) {
         readingsByDevice[deviceId] = {
+          deviceId,
           deviceName: reading.device.name,
           readings: {},
         }
@@ -135,6 +137,98 @@ export async function GET() {
       })
     })
 
+    // Convert to array
+    const readingsData = Object.values(readingsByDevice)
+
+    // Get devices with most alerts
+    const devicesWithMostAlerts = await prisma.device.findMany({
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        _count: {
+          select: {
+            alerts: {
+              where: {
+                status: "ACTIVE",
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        alerts: {
+          _count: "desc",
+        },
+      },
+      take: 5,
+    })
+
+    // Get most active users
+    const mostActiveUsers = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        _count: {
+          select: {
+            activities: true,
+          },
+        },
+      },
+      orderBy: {
+        activities: {
+          _count: "desc",
+        },
+      },
+      take: 5,
+    })
+
+    // Get alert trends (compare with previous period)
+    const twoDaysAgo = new Date()
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+
+    const alertsToday = await prisma.alert.count({
+      where: {
+        timestamp: {
+          gte: oneDayAgo,
+        },
+      },
+    })
+
+    const alertsYesterday = await prisma.alert.count({
+      where: {
+        timestamp: {
+          gte: twoDaysAgo,
+          lt: oneDayAgo,
+        },
+      },
+    })
+
+    const alertTrend = alertsYesterday > 0 ? Math.round(((alertsToday - alertsYesterday) / alertsYesterday) * 100) : 0
+
+    // Get device status trends
+    const devicesOnlineToday = await prisma.device.count({
+      where: {
+        status: "ONLINE",
+      },
+    })
+
+    const devicesOnlineYesterday = await prisma.device.count({
+      where: {
+        status: "ONLINE",
+        updatedAt: {
+          lt: oneDayAgo,
+        },
+      },
+    })
+
+    const deviceOnlineTrend =
+      devicesOnlineYesterday > 0
+        ? Math.round(((devicesOnlineToday - devicesOnlineYesterday) / devicesOnlineYesterday) * 100)
+        : 0
+
     return NextResponse.json({
       deviceStatusCounts,
       alertSeverityCounts,
@@ -145,7 +239,11 @@ export async function GET() {
       totalAlerts,
       totalCategories,
       totalUsers,
-      readingsByDevice,
+      readingsData,
+      devicesWithMostAlerts,
+      mostActiveUsers,
+      alertTrend,
+      deviceOnlineTrend,
     })
   } catch (error) {
     console.error("Error fetching dashboard stats:", error)

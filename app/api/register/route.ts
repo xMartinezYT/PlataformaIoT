@@ -46,8 +46,8 @@ export async function POST(request: Request) {
           details: "Nuevo usuario registrado",
         },
       })
-    } catch (error) {
-      console.error("Error al crear actividad:", error)
+    } catch (activityError) {
+      console.error("Error al crear actividad:", activityError)
       // No fallamos el registro si falla la creación de la actividad
     }
 
@@ -56,6 +56,14 @@ export async function POST(request: Request) {
     return NextResponse.json(userWithoutPassword, { status: 201 })
   } catch (error) {
     console.error("Error al registrar usuario:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+
+    // Asegurarse de devolver siempre una respuesta JSON válida
+    return NextResponse.json(
+      {
+        error: "Error interno del servidor",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }

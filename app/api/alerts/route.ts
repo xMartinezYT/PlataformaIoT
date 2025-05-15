@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getServerSession } from "next-auth/next"
 import { authOptions } from "@/lib/auth-config"
+import { notifyUserAboutAlert } from "@/lib/notification-service"
 
 export async function GET(request: Request) {
   try {
@@ -69,10 +70,14 @@ export async function POST(request: Request) {
 
     const data = await request.json()
 
+    // Crear la alerta
     const alert = await prisma.alert.create({
       data: {
         ...data,
         userId: session.user.id,
+      },
+      include: {
+        device: true,
       },
     })
 
@@ -84,6 +89,38 @@ export async function POST(request: Request) {
         details: `Creada alerta: ${alert.title}`,
       },
     })
+
+    // Enviar notificación para alertas críticas y altas
+    if (alert.severity === "CRITICAL" || alert.severity === "HIGH") {
+      try {
+        // Notificar al propietario del dispositivo
+        if (alert.device.userId) {
+          await notifyUserAboutAlert(alert.device.userId, alert.id, alert.device.name, alert.title, alert.severity)
+        }
+
+        // Notificar a administradores y managers
+        const admins = await prisma.user.findMany({
+          where: {
+            role: {
+              in: ["ADMIN", "MANAGER"],
+            },
+          },
+          select: {
+            id: true,
+          },
+        })
+
+        for (const admin of admins) {
+          // Evitar duplicados si el propietario es admin/manager
+          if (admin.id !== alert.device.userId) {
+            await notifyUserAboutAlert(admin.id, alert.id, alert.device.name, alert.title, alert.severity)
+          }
+        }
+      } catch (notificationError) {
+        console.error("Error al enviar notificaciones de alerta:", notificationError)
+        // No fallamos la creación de la alerta si falla la notificación
+      }
+    }
 
     return NextResponse.json(alert, { status: 201 })
   } catch (error) {

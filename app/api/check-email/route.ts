@@ -20,6 +20,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ exists: !!existingUser })
   } catch (error) {
     console.error("Error al verificar email:", error)
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+
+    // Asegurarse de devolver siempre una respuesta JSON válida
+    return NextResponse.json(
+      {
+        error: "Error interno del servidor",
+        details: error instanceof Error ? error.message : "Error desconocido",
+      },
+      { status: 500 },
+    )
   }
 }

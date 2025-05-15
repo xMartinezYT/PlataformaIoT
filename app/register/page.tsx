@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react"
-import { debounce } from "lodash" // Asegúrate de instalar lodash si no lo tienes
+import { debounce } from "lodash"
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -44,6 +44,12 @@ export default function RegisterPage() {
         }))
 
         const response = await fetch(`/api/check-email?email=${encodeURIComponent(email)}`)
+
+        // Verificar si la respuesta es OK antes de intentar parsear JSON
+        if (!response.ok) {
+          throw new Error(`Error al verificar email: ${response.status} ${response.statusText}`)
+        }
+
         const data = await response.json()
 
         setValidation((prev) => ({
@@ -60,7 +66,11 @@ export default function RegisterPage() {
         console.error("Error al verificar email:", error)
         setValidation((prev) => ({
           ...prev,
-          email: { ...prev.email, checking: false },
+          email: {
+            ...prev.email,
+            checking: false,
+            message: "Error al verificar email. Inténtalo de nuevo.",
+          },
         }))
       }
     }, 500),
@@ -189,27 +199,38 @@ export default function RegisterPage() {
       return
     }
 
-    // Verificar si el email ya existe (doble verificación)
     try {
-      const emailCheckResponse = await fetch(`/api/check-email?email=${encodeURIComponent(formData.email)}`)
-      const emailCheckData = await emailCheckResponse.json()
+      // Verificar si el email ya existe (doble verificación)
+      try {
+        const emailCheckResponse = await fetch(`/api/check-email?email=${encodeURIComponent(formData.email)}`)
 
-      if (emailCheckData.exists) {
-        setValidation((prev) => ({
-          ...prev,
-          email: {
-            ...prev.email,
-            valid: false,
-            exists: true,
-            message: "Este email ya está registrado",
-          },
-        }))
-        setError("El email ya está registrado. Por favor, usa otro email.")
-        setLoading(false)
-        return
+        // Verificar si la respuesta es OK antes de intentar parsear JSON
+        if (!emailCheckResponse.ok) {
+          throw new Error(`Error al verificar email: ${emailCheckResponse.status} ${emailCheckResponse.statusText}`)
+        }
+
+        const emailCheckData = await emailCheckResponse.json()
+
+        if (emailCheckData.exists) {
+          setValidation((prev) => ({
+            ...prev,
+            email: {
+              ...prev.email,
+              valid: false,
+              exists: true,
+              message: "Este email ya está registrado",
+            },
+          }))
+          setError("El email ya está registrado. Por favor, usa otro email.")
+          setLoading(false)
+          return
+        }
+      } catch (emailCheckError) {
+        console.error("Error al verificar email:", emailCheckError)
+        // Continuamos con el registro aunque falle la verificación de email
       }
 
-      // Continuar con el registro si el email no existe
+      // Continuar con el registro
       const response = await fetch("/api/register", {
         method: "POST",
         headers: {
@@ -222,18 +243,22 @@ export default function RegisterPage() {
         }),
       })
 
-      // Verificar si la respuesta es JSON válido
-      let data
-      try {
-        data = await response.json()
-      } catch (jsonError) {
-        console.error("Error al parsear la respuesta:", jsonError)
-        throw new Error("Error en el servidor: respuesta inválida")
+      // Verificar si la respuesta es OK antes de intentar parsear JSON
+      if (!response.ok) {
+        const contentType = response.headers.get("content-type")
+
+        if (contentType && contentType.includes("application/json")) {
+          // Si es JSON, intentamos parsear el error
+          const errorData = await response.json()
+          throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`)
+        } else {
+          // Si no es JSON, mostramos un error genérico
+          throw new Error(`Error ${response.status}: ${response.statusText}`)
+        }
       }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Error al registrar usuario")
-      }
+      // Intentar parsear la respuesta JSON
+      const data = await response.json()
 
       // Registro exitoso
       setSuccess(true)
