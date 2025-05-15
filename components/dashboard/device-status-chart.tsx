@@ -1,4 +1,5 @@
 "use client"
+
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts"
 
 interface DeviceStatusChartProps {
@@ -49,29 +50,35 @@ export function DeviceStatusChart({ data }: DeviceStatusChartProps) {
 
   return (
     <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie
-            data={chartData}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={renderCustomizedLabel}
-            outerRadius={80}
-            fill="#8884d8"
-            dataKey="value"
-          >
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={statusColors[entry.status] || "#8884d8"} />
-            ))}
-          </Pie>
-          <Tooltip
-            formatter={(value: number) => [`${value} dispositivos`, "Cantidad"]}
-            labelFormatter={(name) => `Estado: ${name}`}
-          />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
+      {chartData.length === 0 ? (
+        <div className="flex h-full items-center justify-center">
+          <p className="text-sm text-muted-foreground">No hay datos disponibles</p>
+        </div>
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={chartData}
+              cx="50%"
+              cy="50%"
+              labelLine={false}
+              label={renderCustomizedLabel}
+              outerRadius={80}
+              fill="#8884d8"
+              dataKey="value"
+            >
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={statusColors[entry.status] || "#8884d8"} />
+              ))}
+            </Pie>
+            <Tooltip
+              formatter={(value: number) => [`${value} dispositivos`, "Cantidad"]}
+              labelFormatter={(name) => `Estado: ${name}`}
+            />
+            <Legend />
+          </PieChart>
+        </ResponsiveContainer>
+      )}
     </div>
   )
 }

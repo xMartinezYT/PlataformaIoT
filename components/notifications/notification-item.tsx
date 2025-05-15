@@ -1,33 +1,25 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { formatDistanceToNow } from "date-fns"
-import { es } from "date-fns/locale"
 import Link from "next/link"
-import { AlertTriangle, Bell, Clock, Cpu, Shield, Check, Trash2, MoreVertical } from "lucide-react"
+import type { Notification } from "@/lib/services/notification-service"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { AlertTriangle, Bell, Check, Clock, Cpu, Shield, Trash2, ExternalLink } from "lucide-react"
+import { notificationService } from "@/lib/services/notification-service"
 
 interface NotificationItemProps {
-  notification: {
-    id: string
-    title: string
-    message: string
-    type: string
-    status: string
-    link: string | null
-    createdAt: string
-    readAt: string | null
-  }
-  onUpdate: (id: string, status: string) => void
+  notification: Notification
+  onUpdate: (notification: Notification) => void
   onDelete: (id: string) => void
 }
 
 export function NotificationItem({ notification, onUpdate, onDelete }: NotificationItemProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const getIcon = () => {
+  // Get notification icon based on type
+  const getNotificationIcon = () => {
     switch (notification.type) {
       case "ALERT":
         return <AlertTriangle className="h-5 w-5 text-red-500" />
@@ -42,130 +34,106 @@ export function NotificationItem({ notification, onUpdate, onDelete }: Notificat
     }
   }
 
-  const handleMarkAsRead = async () => {
+  // Mark notification as read
+  const markAsRead = async () => {
+    if (notification.status === "READ") return
+
+    setIsUpdating(true)
     try {
-      const response = await fetch(`/api/notifications/${notification.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: "READ" }),
-      })
-
-      if (!response.ok) {
-        throw new Error("Error al actualizar notificación")
-      }
-
-      onUpdate(notification.id, "READ")
-      setIsMenuOpen(false)
+      const updatedNotification = await notificationService.markAsRead(notification.id)
+      onUpdate(updatedNotification)
     } catch (error) {
-      console.error("Error al marcar como leída:", error)
+      console.error("Error marking notification as read:", error)
+    } finally {
+      setIsUpdating(false)
     }
   }
 
-  const handleDelete = async () => {
+  // Delete notification
+  const deleteNotification = async () => {
+    setIsDeleting(true)
     try {
-      setIsDeleting(true)
-
-      const response = await fetch(`/api/notifications/${notification.id}`, {
-        method: "DELETE",
-      })
-
-      if (!response.ok) {
-        throw new Error("Error al eliminar notificación")
-      }
-
+      await notificationService.deleteNotification(notification.id)
       onDelete(notification.id)
     } catch (error) {
-      console.error("Error al eliminar notificación:", error)
+      console.error("Error deleting notification:", error)
+    } finally {
       setIsDeleting(false)
     }
   }
 
-  const toggleMenu = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsMenuOpen(!isMenuOpen)
+  // Handle click on notification
+  const handleClick = () => {
+    markAsRead()
   }
 
-  const closeMenu = () => {
-    setIsMenuOpen(false)
-  }
-
-  // Determinar si la notificación está leída
-  const isRead = notification.status === "READ"
-
-  // Contenido de la notificación
   const content = (
-    <div className={`relative flex p-4 ${isRead ? "bg-white" : "bg-blue-50"}`}>
-      <div className="mr-3 flex-shrink-0">{getIcon()}</div>
-      <div className="flex-1 min-w-0">
-        <div className="flex justify-between">
-          <p className={`text-sm font-medium ${isRead ? "text-gray-900" : "text-blue-900"}`}>{notification.title}</p>
-          <div className="relative ml-2">
-            <button
-              onClick={toggleMenu}
-              className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-              aria-label="Opciones de notificación"
-            >
-              <MoreVertical className="h-4 w-4" />
-            </button>
-
-            {isMenuOpen && (
-              <div className="absolute right-0 mt-1 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 z-10">
-                <div className="py-1" role="menu" aria-orientation="vertical">
-                  {!isRead && (
-                    <button
-                      onClick={handleMarkAsRead}
-                      className="flex w-full items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      role="menuitem"
-                    >
-                      <Check className="mr-2 h-4 w-4" />
-                      Marcar como leída
-                    </button>
-                  )}
-                  <button
-                    onClick={handleDelete}
-                    className="flex w-full items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                    role="menuitem"
-                    disabled={isDeleting}
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    {isDeleting ? "Eliminando..." : "Eliminar"}
-                  </button>
-                </div>
-              </div>
-            )}
+    <div className="flex">
+      <div className="mr-4 flex-shrink-0 self-start pt-1">{getNotificationIcon()}</div>
+      <div className="flex-1">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className={`font-medium ${notification.status === "UNREAD" ? "text-black" : "text-gray-700"}`}>
+              {notification.title}
+            </p>
+            <p className={`mt-1 text-sm ${notification.status === "UNREAD" ? "text-gray-700" : "text-gray-500"}`}>
+              {notification.message}
+            </p>
+          </div>
+          <div className="ml-4 flex-shrink-0">
+            <p className="text-xs text-gray-500">{new Date(notification.created_at).toLocaleString()}</p>
           </div>
         </div>
-        <p className="mt-1 text-sm text-gray-600 line-clamp-2">{notification.message}</p>
-        <p className="mt-1 text-xs text-gray-500">
-          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: es })}
-        </p>
+        <div className="mt-2 flex justify-between items-center">
+          <div>
+            {notification.status === "UNREAD" && (
+              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                Nueva
+              </span>
+            )}
+          </div>
+          <div className="flex space-x-2">
+            {notification.status === "UNREAD" && (
+              <Button variant="ghost" size="sm" onClick={markAsRead} disabled={isUpdating} className="h-8 px-2 text-xs">
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Marcar como leída
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={deleteNotification}
+              disabled={isDeleting}
+              className="h-8 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Eliminar
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   )
 
-  // Si hay un enlace, envolver en un Link
-  if (notification.link) {
-    return (
-      <li>
-        <Link
-          href={notification.link}
-          className="block hover:bg-gray-50"
-          onClick={() => {
-            // Marcar como leída automáticamente al hacer clic
-            if (!isRead) {
-              handleMarkAsRead()
-            }
-          }}
-        >
-          {content}
-        </Link>
-      </li>
-    )
-  }
-
-  // Si no hay enlace, mostrar sin Link
-  return <li>{content}</li>
+  return (
+    <Card
+      className={`${notification.status === "UNREAD" ? "bg-blue-50" : "bg-white"} hover:shadow-md transition-shadow`}
+      onClick={handleClick}
+    >
+      <CardContent className="p-4">
+        {notification.link ? (
+          <Link href={notification.link} className="block">
+            {content}
+            <div className="mt-2 flex justify-end">
+              <span className="text-xs text-blue-500 flex items-center">
+                Ver detalles <ExternalLink className="h-3 w-3 ml-1" />
+              </span>
+            </div>
+          </Link>
+        ) : (
+          content
+        )}
+      </CardContent>
+    </Card>
+  )
 }

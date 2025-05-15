@@ -3,6 +3,7 @@ import "./globals.css"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { Providers } from "./providers"
+import { SessionProvider } from "next-auth/react"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,7 +21,9 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={inter.className}>
-        <Providers>{children}</Providers>
+        <SessionProvider>
+          <Providers>{children}</Providers>
+        </SessionProvider>
       </body>
     </html>
   )

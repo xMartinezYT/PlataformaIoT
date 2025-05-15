@@ -1,85 +1,85 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
-import { getServerSession } from "next-auth/next"
-import { authOptions } from "@/lib/auth-config"
+import { notificationService } from "@/lib/services/notification-service"
+import { getUserFromRequest } from "@/lib/auth-utils"
 
-// Actualizar el estado de una notificación
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
+    const user = await getUserFromRequest(request)
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = params
-    const { status } = await request.json()
-
-    if (!status) {
-      return NextResponse.json({ error: "Status is required" }, { status: 400 })
-    }
-
-    // Verificar que la notificación pertenece al usuario
-    const notification = await prisma.notification.findUnique({
-      where: { id },
-    })
-
+    const notification = await notificationService.getNotificationById(params.id)
     if (!notification) {
       return NextResponse.json({ error: "Notification not found" }, { status: 404 })
     }
 
-    if (notification.userId !== session.user.id) {
+    // Check if notification belongs to user
+    if (notification.user_id !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Actualizar el estado de la notificación
-    const updatedNotification = await prisma.notification.update({
-      where: { id },
-      data: {
-        status,
-        readAt: status === "READ" ? new Date() : notification.readAt,
-      },
-    })
-
-    return NextResponse.json(updatedNotification)
+    return NextResponse.json({ notification })
   } catch (error) {
-    console.error("Error al actualizar notificación:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error("Error fetching notification:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 
-// Eliminar una notificación
-export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await getServerSession(authOptions)
-
-    if (!session) {
+    const user = await getUserFromRequest(request)
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { id } = params
-
-    // Verificar que la notificación pertenece al usuario
-    const notification = await prisma.notification.findUnique({
-      where: { id },
-    })
-
-    if (!notification) {
+    // Check if notification exists and belongs to user
+    const existingNotification = await notificationService.getNotificationById(params.id)
+    if (!existingNotification) {
       return NextResponse.json({ error: "Notification not found" }, { status: 404 })
     }
 
-    if (notification.userId !== session.user.id) {
+    if (existingNotification.user_id !== user.id && user.role !== "ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    // Eliminar la notificación
-    await prisma.notification.delete({
-      where: { id },
-    })
+    const body = await request.json()
+
+    // Only allow marking as read
+    if (body.status === "READ") {
+      const notification = await notificationService.markAsRead(params.id)
+      return NextResponse.json({ notification })
+    }
+
+    return NextResponse.json({ error: "Invalid operation" }, { status: 400 })
+  } catch (error) {
+    console.error("Error updating notification:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Check if notification exists and belongs to user
+    const existingNotification = await notificationService.getNotificationById(params.id)
+    if (!existingNotification) {
+      return NextResponse.json({ error: "Notification not found" }, { status: 404 })
+    }
+
+    if (existingNotification.user_id !== user.id && user.role !== "ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    await notificationService.deleteNotification(params.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error al eliminar notificación:", error)
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 })
+    console.error("Error deleting notification:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

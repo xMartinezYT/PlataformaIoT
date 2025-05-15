@@ -1,52 +1,177 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import {
-  AlertTriangle,
-  Clock,
-  TabletIcon as DeviceTablet,
-  Layers,
-  Loader2,
-  Users,
-  Activity,
-  Cpu,
-  Wifi,
-  WifiOff,
-} from "lucide-react"
-import { StatCard } from "@/components/dashboard/stat-card"
-import { ChartContainer } from "@/components/dashboard/chart-container"
+import { useRouter } from "next/navigation"
+import { AlertTriangle, TabletIcon as DeviceTablet, Loader2, Wifi, WifiOff } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { deviceService } from "@/lib/services/device-service"
+import { notificationService } from "@/lib/services/notification-service"
 import { DeviceStatusChart } from "@/components/dashboard/device-status-chart"
 import { AlertSeverityChart } from "@/components/dashboard/alert-severity-chart"
 import { ReadingsChart } from "@/components/dashboard/readings-chart"
-import { ActivityItem } from "@/components/dashboard/activity-item"
-import { MaintenanceList } from "@/components/dashboard/maintenance-list"
+import { DeviceList } from "@/components/devices/device-list"
+import { AlertList } from "@/components/alerts/alert-list"
+import { NotificationList } from "@/components/notifications/notification-list"
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [dashboardData, setDashboardData] = useState<any>(null)
+  const [devices, setDevices] = useState<any[]>([])
+  const [alerts, setAlerts] = useState<any[]>([])
+  const [notifications, setNotifications] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState("overview")
 
+  const router = useRouter()
+
+  // Fetch dashboard data
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch("/api/dashboard/stats")
+        setLoading(true)
 
-        if (!response.ok) {
-          throw new Error("Error al cargar los datos del dashboard")
+        // Fetch devices
+        const devicesData = await deviceService.getUserDevices()
+        setDevices(devicesData)
+
+        // Calculate device status counts
+        const statusCounts = devicesData.reduce((acc: any, device) => {
+          acc[device.status] = (acc[device.status] || 0) + 1
+          return acc
+        }, {})
+
+        const deviceStatusData = Object.entries(statusCounts).map(([status, count]) => ({
+          status,
+          count: count as number,
+        }))
+
+        // Fetch active alerts
+        let activeAlerts: any[] = []
+        for (const device of devicesData) {
+          try {
+            const deviceAlerts = await deviceService.getDeviceAlerts(device.id, "ACTIVE")
+            activeAlerts = [...activeAlerts, ...deviceAlerts]
+          } catch (err) {
+            console.error(`Error fetching alerts for device ${device.id}:`, err)
+          }
         }
 
-        const data = await response.json()
-        setDashboardData(data)
-      } catch (err) {
+        setAlerts(activeAlerts)
+
+        // Calculate alert severity counts
+        const severityCounts = activeAlerts.reduce((acc: any, alert) => {
+          acc[alert.severity] = (acc[alert.severity] || 0) + 1
+          return acc
+        }, {})
+
+        const alertSeverityData = Object.entries(severityCounts).map(([severity, count]) => ({
+          severity,
+          count: count as number,
+        }))
+
+        // Fetch notifications
+        const notificationsData = await notificationService.getUserNotifications(undefined, 10)
+        setNotifications(notificationsData)
+
+        // Prepare readings data for chart
+        const readingsData: any[] = []
+        for (const device of devicesData.slice(0, 5)) {
+          // Limit to 5 devices for performance
+          try {
+            const readings = await deviceService.getDeviceReadings(device.id, 50)
+
+            // Group readings by type
+            const readingsByType: Record<string, any[]> = {}
+            readings.forEach((reading) => {
+              if (!readingsByType[reading.type]) {
+                readingsByType[reading.type] = []
+              }
+              readingsByType[reading.type].push({
+                timestamp: reading.timestamp,
+                value: reading.value,
+                unit: reading.unit || "",
+              })
+            })
+
+            if (Object.keys(readingsByType).length > 0) {
+              readingsData.push({
+                deviceId: device.id,
+                deviceName: device.name,
+                readings: readingsByType,
+              })
+            }
+          } catch (err) {
+            console.error(`Error fetching readings for device ${device.id}:`, err)
+          }
+        }
+
+        setDashboardData({
+          deviceStatusData,
+          alertSeverityData,
+          readingsData,
+          totalDevices: devicesData.length,
+          onlineDevices: devicesData.filter((d) => d.status === "ONLINE").length,
+          totalAlerts: activeAlerts.length,
+          resolvedAlerts: 0, // We'd need to fetch resolved alerts separately
+        })
+
+        setError(null)
+      } catch (err: any) {
         console.error("Error fetching dashboard data:", err)
-        setError("No se pudieron cargar los datos del dashboard. Por favor, intenta de nuevo más tarde.")
+        setError(err.message || "Failed to load dashboard data")
       } finally {
         setLoading(false)
       }
     }
 
     fetchDashboardData()
+
+    // Set up real-time subscriptions
+    const subscriptions: (() => void)[] = []
+
+    // We'll add real-time subscriptions here after initial data load
+
+    return () => {
+      // Clean up subscriptions
+      subscriptions.forEach((unsubscribe) => unsubscribe())
+    }
   }, [])
+
+  // Set up real-time subscriptions after initial data load
+  useEffect(() => {
+    if (!devices.length) return
+
+    const subscriptions: (() => void)[] = []
+
+    // Subscribe to device status changes
+    devices.forEach((device) => {
+      const unsubscribe = deviceService.subscribeToDeviceStatus(device.id, (status) => {
+        setDevices((prev) => prev.map((d) => (d.id === device.id ? { ...d, status } : d)))
+      })
+      subscriptions.push(unsubscribe)
+    })
+
+    // Subscribe to new alerts
+    devices.forEach((device) => {
+      const unsubscribe = deviceService.subscribeToDeviceAlerts(device.id, (alert) => {
+        setAlerts((prev) => [alert, ...prev])
+      })
+      subscriptions.push(unsubscribe)
+    })
+
+    // Subscribe to new notifications
+    const unsubscribeNotifications = notificationService.subscribeToNotifications((notification) => {
+      setNotifications((prev) => [notification, ...prev])
+    })
+    subscriptions.push(unsubscribeNotifications)
+
+    return () => {
+      // Clean up subscriptions
+      subscriptions.forEach((unsubscribe) => unsubscribe())
+    }
+  }, [devices])
 
   if (loading) {
     return (
@@ -62,171 +187,185 @@ export default function DashboardPage() {
       <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
         <h2 className="text-lg font-semibold">Error</h2>
         <p>{error}</p>
+        <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+          Reintentar
+        </Button>
       </div>
     )
   }
 
-  // Preparar datos para los gráficos
-  const deviceStatusData =
-    dashboardData?.deviceStatusCounts.map((item: any) => ({
-      status: item.status,
-      count: item._count.id,
-    })) || []
-
-  const alertSeverityData =
-    dashboardData?.alertSeverityCounts.map((item: any) => ({
-      severity: item.severity,
-      count: item._count.id,
-    })) || []
-
-  // Calcular dispositivos online y offline
-  const onlineDevices = deviceStatusData.find((item: any) => item.status === "ONLINE")?.count || 0
-  const offlineDevices = deviceStatusData.find((item: any) => item.status === "OFFLINE")?.count || 0
-  const maintenanceDevices = deviceStatusData.find((item: any) => item.status === "MAINTENANCE")?.count || 0
-  const errorDevices = deviceStatusData.find((item: any) => item.status === "ERROR")?.count || 0
-
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <Button onClick={() => router.push("/devices/new")}>Añadir Dispositivo</Button>
+      </div>
 
       {/* Tarjetas de estadísticas */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Dispositivos Totales"
-          value={dashboardData?.totalDevices || 0}
-          icon={<DeviceTablet />}
-          color="blue"
-        />
-        <StatCard
-          title="Alertas Activas"
-          value={dashboardData?.totalAlerts || 0}
-          icon={<AlertTriangle />}
-          trend={{
-            value: dashboardData?.alertTrend || 0,
-            isPositive: dashboardData?.alertTrend < 0,
-          }}
-          color="red"
-        />
-        <StatCard title="Categorías" value={dashboardData?.totalCategories || 0} icon={<Layers />} color="purple" />
-        <StatCard title="Usuarios" value={dashboardData?.totalUsers || 0} icon={<Users />} color="green" />
-      </div>
-
-      {/* Estado de dispositivos */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Dispositivos en línea"
-          value={onlineDevices}
-          icon={<Wifi className="text-green-500" />}
-          color="green"
-          trend={{
-            value: dashboardData?.deviceOnlineTrend || 0,
-            isPositive: dashboardData?.deviceOnlineTrend > 0,
-          }}
-        />
-        <StatCard
-          title="Dispositivos desconectados"
-          value={offlineDevices}
-          icon={<WifiOff className="text-gray-500" />}
-          color="gray"
-        />
-        <StatCard
-          title="En mantenimiento"
-          value={maintenanceDevices}
-          icon={<Clock className="text-yellow-500" />}
-          color="yellow"
-        />
-        <StatCard
-          title="Con errores"
-          value={errorDevices}
-          icon={<AlertTriangle className="text-red-500" />}
-          color="red"
-        />
-      </div>
-
-      {/* Gráficos y tablas */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Gráfico de estado de dispositivos */}
-        <ChartContainer title="Estado de Dispositivos" description="Distribución de dispositivos por estado">
-          <DeviceStatusChart data={deviceStatusData} />
-        </ChartContainer>
-
-        {/* Gráfico de severidad de alertas */}
-        <ChartContainer title="Alertas por Severidad" description="Distribución de alertas activas por severidad">
-          <AlertSeverityChart data={alertSeverityData} />
-        </ChartContainer>
-
-        {/* Gráfico de lecturas de dispositivos */}
-        <ChartContainer title="Lecturas de Dispositivos" description="Datos de sensores de las últimas 24 horas">
-          <ReadingsChart data={dashboardData?.readingsData || []} />
-        </ChartContainer>
-
-        {/* Actividades recientes */}
-        <ChartContainer title="Actividades Recientes" description="Últimas acciones realizadas en la plataforma">
-          <div className="max-h-64 overflow-y-auto">
-            {dashboardData?.recentActivities?.length > 0 ? (
-              <div className="divide-y divide-gray-200">
-                {dashboardData.recentActivities.map((activity: any) => (
-                  <ActivityItem
-                    key={activity.id}
-                    user={activity.user}
-                    action={activity.action}
-                    details={activity.details}
-                    timestamp={activity.timestamp}
-                  />
-                ))}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Dispositivos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">{dashboardData?.totalDevices || 0}</span>
+                <span className="text-xs text-muted-foreground">Total Dispositivos</span>
               </div>
-            ) : (
-              <div className="flex h-full items-center justify-center py-8">
-                <p className="text-gray-500">No hay actividades recientes</p>
-              </div>
-            )}
-          </div>
-        </ChartContainer>
-      </div>
-
-      {/* Sección inferior */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Próximos mantenimientos */}
-        <ChartContainer title="Próximos Mantenimientos" description="Mantenimientos programados para los dispositivos">
-          <MaintenanceList maintenances={dashboardData?.upcomingMaintenance || []} />
-        </ChartContainer>
-
-        {/* Dispositivos con más alertas */}
-        <ChartContainer title="Dispositivos con más Alertas" description="Dispositivos que requieren atención">
-          {dashboardData?.devicesWithMostAlerts?.length > 0 ? (
-            <div className="space-y-4">
-              {dashboardData.devicesWithMostAlerts.map((device: any) => (
-                <div
-                  key={device.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 p-3"
-                >
-                  <div className="flex items-center">
-                    <Cpu className="mr-3 h-5 w-5 text-gray-500" />
-                    <div>
-                      <p className="font-medium text-gray-900">{device.name}</p>
-                      <div className="mt-1">
-                        <span className="text-xs text-gray-500">ID: {device.id.substring(0, 8)}...</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="mr-4 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                      {device._count.alerts} alertas
-                    </div>
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100">
-                      <Activity className="h-4 w-4 text-gray-600" />
-                    </div>
-                  </div>
+              <div className="flex items-center space-x-1">
+                <DeviceTablet className="h-8 w-8 text-gray-400" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{dashboardData?.onlineDevices || 0}</span>
+                  <span className="text-xs text-green-500">En línea</span>
                 </div>
-              ))}
+              </div>
             </div>
-          ) : (
-            <div className="flex h-full items-center justify-center py-8">
-              <p className="text-gray-500">No hay dispositivos con alertas</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Alertas</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">{dashboardData?.totalAlerts || 0}</span>
+                <span className="text-xs text-muted-foreground">Alertas Activas</span>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-amber-400" />
             </div>
-          )}
-        </ChartContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Dispositivos Online</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">{dashboardData?.onlineDevices || 0}</span>
+                <span className="text-xs text-muted-foreground">Conectados</span>
+              </div>
+              <Wifi className="h-8 w-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Dispositivos Offline</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <span className="text-2xl font-bold">
+                  {(dashboardData?.totalDevices || 0) - (dashboardData?.onlineDevices || 0)}
+                </span>
+                <span className="text-xs text-muted-foreground">Desconectados</span>
+              </div>
+              <WifiOff className="h-8 w-8 text-gray-400" />
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Tabs for different dashboard views */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Resumen</TabsTrigger>
+          <TabsTrigger value="devices">Dispositivos</TabsTrigger>
+          <TabsTrigger value="alerts">Alertas</TabsTrigger>
+          <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6 pt-4">
+          {/* Charts */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Device Status Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Estado de Dispositivos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <DeviceStatusChart data={dashboardData?.deviceStatusData || []} />
+              </CardContent>
+            </Card>
+
+            {/* Alert Severity Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Alertas por Severidad</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AlertSeverityChart data={dashboardData?.alertSeverityData || []} />
+              </CardContent>
+            </Card>
+
+            {/* Readings Chart */}
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Lecturas de Dispositivos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ReadingsChart data={dashboardData?.readingsData || []} />
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Alerts */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Alertas Recientes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AlertList alerts={alerts.slice(0, 5)} compact />
+              {alerts.length > 5 && (
+                <div className="mt-4 text-center">
+                  <Button variant="outline" onClick={() => setActiveTab("alerts")}>
+                    Ver todas las alertas
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="devices" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mis Dispositivos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DeviceList devices={devices} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="alerts" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Alertas Activas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AlertList alerts={alerts} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications" className="pt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Notificaciones</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <NotificationList notifications={notifications} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

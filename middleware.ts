@@ -1,43 +1,37 @@
+import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { getToken } from "next-auth/jwt"
 
-export async function middleware(request: NextRequest) {
-  // Rutas que no requieren autenticación
-  const publicPaths = ["/", "/login", "/register", "/api/auth"]
-  const isPublicPath = publicPaths.some(
-    (path) => request.nextUrl.pathname === path || request.nextUrl.pathname.startsWith(path + "/"),
-  )
+export async function middleware(req: NextRequest) {
+  const res = NextResponse.next()
+  const supabase = createMiddlewareClient({ req, res })
 
-  if (isPublicPath) {
-    return NextResponse.next()
+  // Refresh session if expired
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // Check if the request is for a protected route
+  const path = req.nextUrl.pathname
+  const isProtectedRoute =
+    path.startsWith("/dashboard") ||
+    path.startsWith("/devices") ||
+    path.startsWith("/alerts") ||
+    path.startsWith("/users") ||
+    path.startsWith("/settings") ||
+    path.startsWith("/grok-ai") ||
+    path.startsWith("/scada")
+
+  // If accessing a protected route without a session, redirect to login
+  if (isProtectedRoute && !session) {
+    const redirectUrl = new URL("/login", req.url)
+    redirectUrl.searchParams.set("redirect", path)
+    return NextResponse.redirect(redirectUrl)
   }
 
-  // Verificar token de autenticación
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
-
-  // Si no hay token y la ruta no es pública, redirigir al login
-  if (!token) {
-    const url = new URL("/login", request.url)
-    url.searchParams.set("callbackUrl", request.nextUrl.pathname)
-    return NextResponse.redirect(url)
-  }
-
-  return NextResponse.next()
+  return res
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Coincide con todas las rutas excepto:
-     * 1. /api/auth (NextAuth.js endpoints)
-     * 2. /_next (Next.js internals)
-     * 3. /fonts (recursos estáticos)
-     * 4. /favicon.ico (favicon)
-     */
-    "/((?!api/auth|_next|fonts|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/auth/callback).*)"],
 }

@@ -1,77 +1,45 @@
+import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { hashPassword } from "@/lib/auth"
 
 export async function POST(request: Request) {
   try {
-    // Obtener los datos de la solicitud
-    const data = await request.json()
-    console.log("Datos recibidos:", data)
+    // Parse the request body
+    const body = await request.json()
 
-    const { name, email, password } = data
-
-    // Validación básica
-    if (!name || !email || !password) {
-      return new Response(JSON.stringify({ error: "Nombre, email y contraseña son obligatorios" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+    // Validate input
+    if (!body.email || !body.password || !body.name) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    // Verificar si el usuario ya existe
+    // Check if user exists
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: body.email },
     })
 
     if (existingUser) {
-      return new Response(JSON.stringify({ error: "Ya existe un usuario con este email" }), {
-        status: 400,
-        headers: { "Content-Type": "application/json" },
-      })
+      return NextResponse.json({ error: "User already exists" }, { status: 409 })
     }
 
-    // Encriptar contraseña
-    const hashedPassword = await hashPassword(password)
+    // Hash the password
+    const hashedPassword = await hashPassword(body.password)
 
-    // Crear usuario
+    // Create the user
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
+        name: body.name,
+        email: body.email,
         password: hashedPassword,
-        role: "USER", // Rol por defecto
+        role: body.role || "USER",
       },
     })
 
-    // Crear actividad de registro
-    try {
-      await prisma.activity.create({
-        data: {
-          userId: user.id,
-          action: "register",
-          details: "Nuevo usuario registrado",
-        },
-      })
-    } catch (activityError) {
-      console.error("Error al crear actividad:", activityError)
-      // No fallamos el registro si falla la creación de la actividad
-    }
+    // Return the user without the password
+    const { password, ...userWithoutPassword } = user
 
-    // Devolver usuario sin contraseña
-    const { password: _, ...userWithoutPassword } = user
-    return new Response(JSON.stringify(userWithoutPassword), {
-      status: 201,
-      headers: { "Content-Type": "application/json" },
-    })
+    return NextResponse.json({ message: "User created successfully", user: userWithoutPassword }, { status: 201 })
   } catch (error) {
-    console.error("Error al registrar usuario:", error)
-
-    // Asegurarse de devolver siempre una respuesta JSON válida
-    return new Response(
-      JSON.stringify({
-        error: "Error interno del servidor",
-        details: error instanceof Error ? error.message : "Error desconocido",
-      }),
-      { status: 500, headers: { "Content-Type": "application/json" } },
-    )
+    console.error("Registration error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
