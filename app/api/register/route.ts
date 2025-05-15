@@ -4,7 +4,22 @@ import { hashPassword } from "@/lib/auth"
 
 export async function POST(request: Request) {
   try {
-    const { name, email, password } = await request.json()
+    // Verificar que la solicitud tenga un cuerpo
+    const body = await request.text()
+    if (!body) {
+      return NextResponse.json({ error: "No se proporcionaron datos" }, { status: 400 })
+    }
+
+    // Intentar parsear el JSON
+    let data
+    try {
+      data = JSON.parse(body)
+    } catch (e) {
+      console.error("Error al parsear JSON:", e, "Body:", body)
+      return NextResponse.json({ error: "Formato de datos inválido" }, { status: 400 })
+    }
+
+    const { name, email, password } = data
 
     // Validación básica
     if (!name || !email || !password) {
@@ -34,13 +49,18 @@ export async function POST(request: Request) {
     })
 
     // Crear actividad de registro
-    await prisma.activity.create({
-      data: {
-        userId: user.id,
-        action: "register",
-        details: "Nuevo usuario registrado",
-      },
-    })
+    try {
+      await prisma.activity.create({
+        data: {
+          userId: user.id,
+          action: "register",
+          details: "Nuevo usuario registrado",
+        },
+      })
+    } catch (error) {
+      console.error("Error al crear actividad:", error)
+      // No fallamos el registro si falla la creación de la actividad
+    }
 
     // Devolver usuario sin contraseña
     const { password: _, ...userWithoutPassword } = user

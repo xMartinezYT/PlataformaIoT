@@ -47,7 +47,14 @@ export default function RegisterPage() {
         }),
       })
 
-      const data = await response.json()
+      // Verificar si la respuesta es JSON válido
+      let data
+      try {
+        data = await response.json()
+      } catch (jsonError) {
+        console.error("Error al parsear la respuesta:", jsonError)
+        throw new Error("Error en el servidor: respuesta inválida")
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Error al registrar usuario")
