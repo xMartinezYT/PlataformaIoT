@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { hashPassword } from "@/lib/auth"
 
@@ -12,7 +11,10 @@ export async function POST(request: Request) {
 
     // Validación básica
     if (!name || !email || !password) {
-      return NextResponse.json({ error: "Nombre, email y contraseña son obligatorios" }, { status: 400 })
+      return new Response(JSON.stringify({ error: "Nombre, email y contraseña son obligatorios" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     // Verificar si el usuario ya existe
@@ -21,7 +23,10 @@ export async function POST(request: Request) {
     })
 
     if (existingUser) {
-      return NextResponse.json({ error: "Ya existe un usuario con este email" }, { status: 400 })
+      return new Response(JSON.stringify({ error: "Ya existe un usuario con este email" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     // Encriptar contraseña
@@ -53,17 +58,20 @@ export async function POST(request: Request) {
 
     // Devolver usuario sin contraseña
     const { password: _, ...userWithoutPassword } = user
-    return NextResponse.json(userWithoutPassword, { status: 201 })
+    return new Response(JSON.stringify(userWithoutPassword), {
+      status: 201,
+      headers: { "Content-Type": "application/json" },
+    })
   } catch (error) {
     console.error("Error al registrar usuario:", error)
 
     // Asegurarse de devolver siempre una respuesta JSON válida
-    return NextResponse.json(
-      {
+    return new Response(
+      JSON.stringify({
         error: "Error interno del servidor",
         details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     )
   }
 }

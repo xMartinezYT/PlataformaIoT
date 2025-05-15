@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 
 export async function GET(request: Request) {
@@ -8,7 +7,10 @@ export async function GET(request: Request) {
     const email = searchParams.get("email")
 
     if (!email) {
-      return NextResponse.json({ error: "Email es requerido" }, { status: 400 })
+      return new Response(JSON.stringify({ error: "Email es requerido" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      })
     }
 
     // Verificar si el email ya existe en la base de datos
@@ -17,17 +19,20 @@ export async function GET(request: Request) {
       select: { id: true }, // Solo necesitamos saber si existe, no necesitamos todos los datos
     })
 
-    return NextResponse.json({ exists: !!existingUser })
+    return new Response(JSON.stringify({ exists: !!existingUser }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
   } catch (error) {
     console.error("Error al verificar email:", error)
 
     // Asegurarse de devolver siempre una respuesta JSON válida
-    return NextResponse.json(
-      {
+    return new Response(
+      JSON.stringify({
         error: "Error interno del servidor",
         details: error instanceof Error ? error.message : "Error desconocido",
-      },
-      { status: 500 },
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
     )
   }
 }
