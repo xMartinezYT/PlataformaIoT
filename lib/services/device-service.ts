@@ -1,33 +1,34 @@
 import { createServerClient } from "@/lib/supabase/server"
 import { query } from "../db"
+import { v4 as uuidv4 } from "uuid"
 
-export type Device = {
+export interface Device {
   id: string
   name: string
   serial_number: string
-  model?: string
-  manufacturer?: string
-  description?: string
-  status: "ONLINE" | "OFFLINE" | "MAINTENANCE" | "ERROR" | "INACTIVE"
-  location?: string
-  latitude?: number
-  longitude?: number
-  firmware_version?: string
-  last_maintenance?: string
-  last_reading_at?: string
-  created_at: string
-  updated_at: string
+  model: string | null
+  manufacturer: string | null
+  description: string | null
+  status: string
+  location: string | null
+  latitude: number | null
+  longitude: number | null
+  firmware_version: string | null
+  last_maintenance: Date | null
+  last_reading_at: Date | null
+  created_at: Date
+  updated_at: Date
   user_id: string
-  category_id?: string
+  category_id: string | null
 }
 
-export type DeviceReading = {
+export interface DeviceReading {
   id: string
   device_id: string
   type: string
   value: number
-  unit?: string
-  timestamp: string
+  unit: string | null
+  timestamp: Date
 }
 
 export type DeviceAlert = {
@@ -234,96 +235,218 @@ export type DeviceAlert = {
 
 export const deviceService = {
   // Get all devices
-  async getAllDevices(): Promise<Device[]> {
-    const result = await query("SELECT * FROM devices ORDER BY updated_at DESC")
-    return result.rows
-  },
+  // async getAllDevices(): Promise<Device[]> {
+  //   const result = await query("SELECT * FROM devices ORDER BY updated_at DESC")
+  //   return result.rows
+  // },
 
   // Get devices by user ID
+  // async getDevicesByUserId(userId: string): Promise<Device[]> {
+  //   const result = await query("SELECT * FROM devices WHERE user_id = $1 ORDER BY updated_at DESC", [userId])
+  //   return result.rows
+  // },
+
+  // Get device by ID
+  // async getDeviceById(id: string): Promise<Device | null> {
+  //   const result = await query("SELECT * FROM devices WHERE id = $1", [id])
+  //   return result.rows[0] || null
+  // },
+
+  // Create device
+  // async createDevice(device: Omit<Device, "id" | "created_at" | "updated_at">): Promise<Device> {
+  //   const {
+  //     name,
+  //     serial_number,
+  //     model,
+  //     manufacturer,
+  //     description,
+  //     status,
+  //     location,
+  //     latitude,
+  //     longitude,
+  //     firmware_version,
+  //     last_maintenance,
+  //     user_id,
+  //     category_id,
+  //   } = device
+
+  //   const result = await query(
+  //     `INSERT INTO devices (
+  //       name, serial_number, model, manufacturer, description, status,
+  //       location, latitude, longitude, firmware_version, last_maintenance, user_id, category_id
+  //     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+  //     RETURNING *`,
+  //     [
+  //       name,
+  //       serial_number,
+  //       model,
+  //       manufacturer,
+  //       description,
+  //       status,
+  //       location,
+  //       latitude,
+  //       longitude,
+  //       firmware_version,
+  //       last_maintenance,
+  //       user_id,
+  //       category_id,
+  //     ],
+  //   )
+
+  //   return result.rows[0]
+  // },
+
+  // Update device
+  // async updateDevice(id: string, updates: Partial<Device>): Promise<Device> {
+  //   const fields = Object.keys(updates)
+  //     .filter((key) => key !== "id" && key !== "created_at" && key !== "updated_at")
+  //     .map((key, index) => `${key} = $${index + 1}`)
+
+  //   const values = Object.values(updates).filter(
+  //     (_, index) => fields[index] !== "id" && fields[index] !== "created_at" && fields[index] !== "updated_at",
+  //   )
+
+  //   if (fields.length === 0) {
+  //     return this.getDeviceById(id) as Promise<Device>
+  //   }
+
+  //   const result = await query(
+  //     `UPDATE devices SET ${fields.join(", ")}, updated_at = NOW() WHERE id = $${fields.length + 1} RETURNING *`,
+  //     [...values, id],
+  //   )
+
+  //   return result.rows[0]
+  // },
+
+  // Delete device
+  // async deleteDevice(id: string): Promise<boolean> {
+  //   const result = await query("DELETE FROM devices WHERE id = $1 RETURNING id", [id])
+  //   return result.rowCount > 0
+  // },
+
+  // Get device readings
+  // async getDeviceReadings(deviceId: string, limit = 100): Promise<DeviceReading[]> {
+  //   const result = await query("SELECT * FROM device_readings WHERE device_id = $1 ORDER BY timestamp DESC LIMIT $2", [
+  //     deviceId,
+  //     limit,
+  //   ])
+  //   return result.rows
+  // },
+
+  // Add device reading
+  // async addDeviceReading(reading: Omit<DeviceReading, "id">): Promise<DeviceReading> {
+  //   const { device_id, type, value, unit, timestamp } = reading
+  //   const result = await query(
+  //     "INSERT INTO device_readings (device_id, type, value, unit, timestamp) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+  //     [device_id, type, value, unit, timestamp || new Date()],
+  //   )
+  //   return result.rows[0]
+  // },
+
+  // Get device statistics
+  // async getDeviceStats(userId?: string): Promise<any> {
+  //   // Base query for counting devices
+  //   let deviceQuery = "SELECT COUNT(*) as total FROM devices"
+  //   let deviceParams: any[] = []
+
+  //   // If userId is provided, filter by user
+  //   if (userId) {
+  //     deviceQuery += " WHERE user_id = $1"
+  //     deviceParams = [userId]
+  //   }
+
+  //   // Get total devices
+  //   const totalDevicesResult = await query(deviceQuery, deviceParams)
+  //   const totalDevices = Number.parseInt(totalDevicesResult.rows[0].total)
+
+  //   // Get online devices
+  //   let onlineQuery = "SELECT COUNT(*) as online FROM devices WHERE status = $1"
+  //   const onlineParams = ["ONLINE"]
+
+  //   // If userId is provided, add to filter
+  //   if (userId) {
+  //     onlineQuery += " AND user_id = $2"
+  //     onlineParams.push(userId)
+  //   }
+
+  //   const onlineDevicesResult = await query(onlineQuery, onlineParams)
+  //   const onlineDevices = Number.parseInt(onlineDevicesResult.rows[0].online)
+
+  //   // Get device status counts
+  //   let statusQuery = "SELECT status, COUNT(*) as count FROM devices"
+  //   let statusParams: any[] = []
+
+  //   // If userId is provided, filter by user
+  //   if (userId) {
+  //     statusQuery += " WHERE user_id = $1"
+  //     statusParams = [userId]
+  //   }
+
+  //   statusQuery += " GROUP BY status"
+
+  //   const statusResult = await query(statusQuery, statusParams)
+  //   const deviceStatusCounts = statusResult.rows
+
+  //   return {
+  //     totalDevices,
+  //     onlineDevices,
+  //     deviceStatusCounts,
+  //   }
+  // },
+  async getAllDevices(): Promise<Device[]> {
+    return await query("SELECT * FROM devices ORDER BY created_at DESC")
+  },
+
   async getDevicesByUserId(userId: string): Promise<Device[]> {
-    const result = await query("SELECT * FROM devices WHERE user_id = $1 ORDER BY updated_at DESC", [userId])
+    const result = await query("SELECT * FROM devices WHERE user_id = $1 ORDER BY created_at DESC", [userId])
     return result.rows
   },
 
-  // Get device by ID
   async getDeviceById(id: string): Promise<Device | null> {
     const result = await query("SELECT * FROM devices WHERE id = $1", [id])
-    return result.rows[0] || null
+    return result.rows.length > 0 ? result.rows[0] : null
   },
 
-  // Create device
-  async createDevice(device: Omit<Device, "id" | "created_at" | "updated_at">): Promise<Device> {
-    const {
-      name,
-      serial_number,
-      model,
-      manufacturer,
-      description,
-      status,
-      location,
-      latitude,
-      longitude,
-      firmware_version,
-      last_maintenance,
-      user_id,
-      category_id,
-    } = device
+  async createDevice(
+    deviceData: Omit<Device, "id" | "created_at" | "updated_at" | "last_reading_at">,
+  ): Promise<Device> {
+    const id = uuidv4()
+
+    const fields = Object.keys(deviceData)
+    const placeholders = fields.map((_, i) => `$${i + 2}`).join(", ")
+    const values = fields.map((field) => deviceData[field as keyof typeof deviceData])
 
     const result = await query(
-      `INSERT INTO devices (
-        name, serial_number, model, manufacturer, description, status, 
-        location, latitude, longitude, firmware_version, last_maintenance, user_id, category_id
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) 
-      RETURNING *`,
-      [
-        name,
-        serial_number,
-        model,
-        manufacturer,
-        description,
-        status,
-        location,
-        latitude,
-        longitude,
-        firmware_version,
-        last_maintenance,
-        user_id,
-        category_id,
-      ],
+      `INSERT INTO devices (id, ${fields.join(", ")}) VALUES ($1, ${placeholders}) RETURNING *`,
+      [id, ...values],
     )
 
     return result.rows[0]
   },
 
-  // Update device
-  async updateDevice(id: string, updates: Partial<Device>): Promise<Device> {
-    const fields = Object.keys(updates)
-      .filter((key) => key !== "id" && key !== "created_at" && key !== "updated_at")
-      .map((key, index) => `${key} = $${index + 1}`)
-
-    const values = Object.values(updates).filter(
-      (_, index) => fields[index] !== "id" && fields[index] !== "created_at" && fields[index] !== "updated_at",
-    )
+  async updateDevice(id: string, data: Partial<Device>): Promise<Device | null> {
+    const fields = Object.keys(data).filter((key) => key !== "id" && key !== "created_at")
 
     if (fields.length === 0) {
-      return this.getDeviceById(id) as Promise<Device>
+      return await this.getDeviceById(id)
     }
 
-    const result = await query(
-      `UPDATE devices SET ${fields.join(", ")}, updated_at = NOW() WHERE id = $${fields.length + 1} RETURNING *`,
-      [...values, id],
-    )
+    const setClause = fields.map((field, i) => `${field} = $${i + 2}`).join(", ")
+    const values = fields.map((field) => data[field as keyof typeof data])
 
-    return result.rows[0]
+    const result = await query(`UPDATE devices SET ${setClause}, updated_at = NOW() WHERE id = $1 RETURNING *`, [
+      id,
+      ...values,
+    ])
+
+    return result.rows.length > 0 ? result.rows[0] : null
   },
 
-  // Delete device
   async deleteDevice(id: string): Promise<boolean> {
     const result = await query("DELETE FROM devices WHERE id = $1 RETURNING id", [id])
-    return result.rowCount > 0
+    return result.rows.length > 0
   },
 
-  // Get device readings
   async getDeviceReadings(deviceId: string, limit = 100): Promise<DeviceReading[]> {
     const result = await query("SELECT * FROM device_readings WHERE device_id = $1 ORDER BY timestamp DESC LIMIT $2", [
       deviceId,
@@ -332,64 +455,36 @@ export const deviceService = {
     return result.rows
   },
 
-  // Add device reading
   async addDeviceReading(reading: Omit<DeviceReading, "id">): Promise<DeviceReading> {
-    const { device_id, type, value, unit, timestamp } = reading
+    const id = uuidv4()
+
     const result = await query(
-      "INSERT INTO device_readings (device_id, type, value, unit, timestamp) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [device_id, type, value, unit, timestamp || new Date()],
+      "INSERT INTO device_readings (id, device_id, type, value, unit, timestamp) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      [id, reading.device_id, reading.type, reading.value, reading.unit, reading.timestamp || new Date()],
     )
+
     return result.rows[0]
   },
 
-  // Get device statistics
-  async getDeviceStats(userId?: string): Promise<any> {
-    // Base query for counting devices
-    let deviceQuery = "SELECT COUNT(*) as total FROM devices"
-    let deviceParams: any[] = []
+  async getDevicesByCategory(categoryId: string): Promise<Device[]> {
+    const result = await query("SELECT * FROM devices WHERE category_id = $1 ORDER BY name", [categoryId])
+    return result.rows
+  },
 
-    // If userId is provided, filter by user
-    if (userId) {
-      deviceQuery += " WHERE user_id = $1"
-      deviceParams = [userId]
-    }
-
-    // Get total devices
-    const totalDevicesResult = await query(deviceQuery, deviceParams)
-    const totalDevices = Number.parseInt(totalDevicesResult.rows[0].total)
-
-    // Get online devices
-    let onlineQuery = "SELECT COUNT(*) as online FROM devices WHERE status = $1"
-    const onlineParams = ["ONLINE"]
-
-    // If userId is provided, add to filter
-    if (userId) {
-      onlineQuery += " AND user_id = $2"
-      onlineParams.push(userId)
-    }
-
-    const onlineDevicesResult = await query(onlineQuery, onlineParams)
-    const onlineDevices = Number.parseInt(onlineDevicesResult.rows[0].online)
-
-    // Get device status counts
-    let statusQuery = "SELECT status, COUNT(*) as count FROM devices"
-    let statusParams: any[] = []
-
-    // If userId is provided, filter by user
-    if (userId) {
-      statusQuery += " WHERE user_id = $1"
-      statusParams = [userId]
-    }
-
-    statusQuery += " GROUP BY status"
-
-    const statusResult = await query(statusQuery, statusParams)
-    const deviceStatusCounts = statusResult.rows
+  async getDeviceStats(): Promise<any> {
+    const totalDevices = await query("SELECT COUNT(*) as count FROM devices")
+    const devicesByStatus = await query("SELECT status, COUNT(*) as count FROM devices GROUP BY status")
+    const devicesByCategory = await query(`
+      SELECT c.name, COUNT(d.id) as count 
+      FROM categories c 
+      LEFT JOIN devices d ON c.id = d.category_id 
+      GROUP BY c.name
+    `)
 
     return {
-      totalDevices,
-      onlineDevices,
-      deviceStatusCounts,
+      totalDevices: Number.parseInt(totalDevices[0].count),
+      devicesByStatus: devicesByStatus.rows,
+      devicesByCategory: devicesByCategory.rows,
     }
   },
 }

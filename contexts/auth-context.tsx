@@ -1,105 +1,131 @@
 "use client"
 
-import type React from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
 
-import { createContext, useContext, useEffect, useState } from "react"
-import type { Session, User } from "@supabase/supabase-js"
-import { supabaseClient } from "@/lib/supabase/client"
+interface User {
+  id: string
+  email: string
+  name: string | null
+  role: string
+}
 
-type AuthContextType = {
+interface AuthContextType {
   user: User | null
-  session: Session | null
-  isLoading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string, name: string) => Promise<{ error: any; user: User | null }>
-  signOut: () => Promise<void>
-  resetPassword: (email: string) => Promise<{ error: any }>
+  loading: boolean
+  login: (email: string, password: string) => Promise<void>
+  register: (email: string, password: string, name: string) => Promise<void>
+  logout: () => Promise<void>
+  error: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [session, setSession] = useState<Session | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
-    // Get initial session
-    supabaseClient.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setIsLoading(false)
-    })
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      setIsLoading(false)
-    })
-
-    return () => {
-      subscription.unsubscribe()
+    // Check if user is logged in
+    async function loadUserFromSession() {
+      try {
+        const response = await fetch("/api/auth/session")
+        if (response.ok) {
+          const data = await response.json()
+          if (data.user) {
+            setUser(data.user)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load user session:", error)
+      } finally {
+        setLoading(false)
+      }
     }
+
+    loadUserFromSession()
   }, [])
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabaseClient.auth.signInWithPassword({
-      email,
-      password,
-    })
-    return { error }
-  }
+  const login = async (email: string, password: string) => {
+    setLoading(true)
+    setError(null)
 
-  const signUp = async (email: string, password: string, name: string) => {
-    const { data, error } = await supabaseClient.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          name,
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      },
-    })
-
-    // If signup is successful, create a user profile
-    if (data.user && !error) {
-      await supabaseClient.from("profiles").upsert({
-        id: data.user.id,
-        name,
-        email,
-        role: "USER",
-        created_at: new Date().toISOString(),
+        body: JSON.stringify({ email, password }),
       })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed")
+      }
+
+      setUser(data.user)
+      router.push("/dashboard")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "An error occurred during login")
+      console.error("Login error:", error)
+    } finally {
+      setLoading(false)
     }
-
-    return { error, user: data.user }
   }
 
-  const signOut = async () => {
-    await supabaseClient.auth.signOut()
+  const register = async (email: string, password: string, name: string) => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password, name }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Registration failed")
+      }
+
+      setUser(data.user)
+      router.push("/dashboard")
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "An error occurred during registration")
+      console.error("Registration error:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const resetPassword = async (email: string) => {
-    const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    })
-    return { error }
+  const logout = async () => {
+    setLoading(true)
+
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+      })
+
+      setUser(null)
+      router.push("/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const value = {
-    user,
-    session,
-    isLoading,
-    signIn,
-    signUp,
-    signOut,
-    resetPassword,
-  }
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{ user, loading, login, register, logout, error }}>{children}</AuthContext.Provider>
+  )
 }
 
 export function useAuth() {
