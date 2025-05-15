@@ -1,23 +1,16 @@
 import { PrismaClient } from "@prisma/client"
 
-// PrismaClient es adjuntado al objeto `global` en desarrollo para prevenir
-// agotar el límite de conexiones a la base de datos.
-const globalForPrisma = global as unknown as { prisma: PrismaClient }
-
-// Inicializar PrismaClient con manejo de errores
-function createPrismaClient() {
-  try {
-    return new PrismaClient({
-      log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
-    })
-  } catch (error) {
-    console.error("Error initializing Prisma Client:", error)
-    throw error
-  }
+// Declaramos una variable global para PrismaClient
+declare global {
+  var prisma: PrismaClient | undefined
 }
 
-export const prisma = globalForPrisma.prisma || createPrismaClient()
+// Exportamos una instancia de PrismaClient
+export const prisma = global.prisma || new PrismaClient()
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+// En desarrollo, guardamos la instancia en la variable global para evitar múltiples instancias
+if (process.env.NODE_ENV !== "production") {
+  global.prisma = prisma
+}
 
 export default prisma
