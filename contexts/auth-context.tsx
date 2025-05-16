@@ -1,193 +1,75 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase/client"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { useRouter, usePathname } from "next/navigation"
 
-interface User {
+type User = {
   id: string
+  name: string
   email: string
-  name: string | null
   role: string
-}
+} | null
 
-interface AuthContextType {
-  user: User | null
-  loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error?: { message: string } }>
-  register: (email: string, password: string, name: string) => Promise<void>
-  logout: () => Promise<void>
-  error: string | null
+type AuthContextType = {
+  user: User
+  login: (email: string, password: string) => Promise<void>
+  logout: () => void
+  isLoading: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<User>(null)
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    // Check if user is logged in
-    async function loadUserFromSession() {
-      try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser()
-
-        if (error) {
-          console.error("Error loading user:", error.message)
-        } else if (user) {
-          console.log("User found in session:", user)
-          setUser({
-            id: user.id,
-            email: user.email || "",
-            name: user.user_metadata?.name || null,
-            role: user.user_metadata?.role || "user",
-          })
-        }
-      } catch (error) {
-        console.error("Failed to load user session:", error)
-      } finally {
-        setLoading(false)
-      }
+    // Verificar si hay un usuario en localStorage al cargar
+    const storedUser = localStorage.getItem("user")
+    if (storedUser) {
+      setUser(JSON.parse(storedUser))
     }
-
-    loadUserFromSession()
-
-    // Set up auth state change listener
-    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("Auth state changed:", event, session?.user?.id)
-      if (event === "SIGNED_IN" && session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.name || null,
-          role: session.user.user_metadata?.role || "user",
-        })
-      } else if (event === "SIGNED_OUT") {
-        setUser(null)
-      }
-    })
-
-    return () => {
-      authListener.subscription.unsubscribe()
-    }
+    setIsLoading(false)
   }, [])
 
-  const signIn = async (email: string, password: string) => {
-    setLoading(true)
-    setError(null)
-    console.log("Attempting to sign in with:", email)
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) {
-        console.error("Sign in error:", error.message)
-        setError(error.message)
-        return { error }
-      }
-
-      console.log("Sign in successful:", data.user?.id)
-      if (data.user) {
-        setUser({
-          id: data.user.id,
-          email: data.user.email || "",
-          name: data.user.user_metadata?.name || null,
-          role: data.user.user_metadata?.role || "user",
-        })
-
-        // Force a router navigation after successful login
-        setTimeout(() => {
-          router.push("/dashboard")
-          router.refresh()
-        }, 100)
-      }
-
-      return {}
-    } catch (error: any) {
-      console.error("Unexpected sign in error:", error)
-      setError(error.message || "An error occurred during sign in")
-      return { error: { message: error.message || "An error occurred during sign in" } }
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const register = async (email: string, password: string, name: string) => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name,
-            role: "user",
-          },
-        },
-      })
-
-      if (error) {
-        throw new Error(error.message || "Registration failed")
-      }
-
-      if (data.user) {
-        setUser({
-          id: data.user.id,
-          email: data.user.email || "",
-          name: data.user.user_metadata?.name || null,
-          role: data.user.user_metadata?.role || "user",
-        })
-
-        // Force a router navigation after successful registration
-        setTimeout(() => {
-          router.push("/dashboard")
-          router.refresh()
-        }, 100)
-      }
-    } catch (error: any) {
-      setError(error.message || "An error occurred during registration")
-      throw error
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const logout = async () => {
-    setLoading(true)
-
-    try {
-      const { error } = await supabase.auth.signOut()
-
-      if (error) {
-        throw error
-      }
-
-      setUser(null)
+  useEffect(() => {
+    // Redirigir a login si no hay usuario y no estamos en login o register
+    if (!isLoading && !user && !pathname?.includes("/login") && !pathname?.includes("/register")) {
       router.push("/login")
-    } catch (error: any) {
-      console.error("Logout error:", error)
-      setError(error.message || "An error occurred during logout")
-    } finally {
-      setLoading(false)
     }
+  }, [user, isLoading, pathname, router])
+
+  const login = async (email: string, password: string) => {
+    setIsLoading(true)
+    // Simulación de login
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        const newUser = {
+          id: "1",
+          name: "Admin Usuario",
+          email,
+          role: "admin",
+        }
+        setUser(newUser)
+        localStorage.setItem("user", JSON.stringify(newUser))
+        setIsLoading(false)
+        resolve()
+      }, 1000)
+    })
   }
 
-  return (
-    <AuthContext.Provider value={{ user, loading, signIn, register, logout, error }}>{children}</AuthContext.Provider>
-  )
+  const logout = () => {
+    setUser(null)
+    localStorage.removeItem("user")
+    router.push("/login")
+  }
+
+  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
 }
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider")
