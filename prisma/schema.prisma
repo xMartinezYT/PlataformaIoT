@@ -1,0 +1,226 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  TECHNICIAN
+  USER
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  ERROR
+  INACTIVE
+}
+
+enum AlertSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+  INFO
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+  IGNORED
+}
+
+enum NotificationStatus {
+  UNREAD
+  READ
+}
+
+enum NotificationType {
+  ALERT
+  MAINTENANCE
+  SYSTEM
+  DEVICE_STATUS
+  SECURITY
+}
+
+model User {
+  id                  String    @id @default(cuid())
+  name                String?
+  email               String    @unique
+  password            String?
+  image               String?
+  role                Role      @default(USER)
+  resetPasswordToken  String?
+  resetPasswordExpires DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // Relaciones
+  devices             Device[]
+  alerts              Alert[]
+  activities          Activity[]
+  notifications       Notification[]
+  pushSubscriptions   PushSubscription[]
+  notificationPreferences NotificationPreferences?
+}
+
+model Device {
+  id                String        @id @default(cuid())
+  name              String
+  serialNumber      String        @unique
+  model             String?
+  manufacturer      String?
+  description       String?
+  status            DeviceStatus  @default(ONLINE)
+  location          String?
+  latitude          Float?
+  longitude         Float?
+  lastMaintenance   DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  // Relaciones
+  userId            String
+  user              User          @relation(fields: [userId], references: [id])
+  categoryId        String?
+  category          Category?     @relation(fields: [categoryId], references: [id])
+  readings          DeviceReading[]
+  alerts            Alert[]
+  maintenances      Maintenance[]
+  automationRules   AutomationRule[]
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  description String?
+  color       String?
+  icon        String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relaciones
+  devices     Device[]
+}
+
+model DeviceReading {
+  id        String   @id @default(cuid())
+  type      String
+  value     Float
+  unit      String?
+  timestamp DateTime @default(now())
+
+  // Relaciones
+  deviceId  String
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model Alert {
+  id        String        @id @default(cuid())
+  title     String
+  message   String
+  severity  AlertSeverity @default(MEDIUM)
+  status    AlertStatus   @default(ACTIVE)
+  timestamp DateTime      @default(now())
+  resolvedAt DateTime?
+
+  // Relaciones
+  deviceId  String
+  device    Device        @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+}
+
+model Maintenance {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  scheduledAt DateTime
+  completedAt DateTime?
+  technician  String?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relaciones
+  deviceId    String
+  device      Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model AutomationRule {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  condition   String
+  action      String
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relaciones
+  deviceId    String
+  device      Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model Activity {
+  id        String   @id @default(cuid())
+  action    String
+  details   String?
+  timestamp DateTime @default(now())
+
+  // Relaciones
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String             @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  status    NotificationStatus @default(UNREAD)
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  // Relaciones
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model NotificationPreferences {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  alertCritical Boolean  @default(true)
+  alertHigh     Boolean  @default(true)
+  deviceStatus  Boolean  @default(true)
+  maintenance   Boolean  @default(false)
+  security      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
