@@ -1,8 +1,14 @@
 import { createServerClient } from "@/lib/supabase/server"
 import { query } from "../db"
 import { v4 as uuidv4 } from "uuid"
+import { createServerSupabaseClient } from "@/lib/supabase/server"
+import type { Database } from "@/types/supabase"
 
-export interface Device {
+export type Device = Database["public"]["Tables"]["devices"]["Row"]
+export type DeviceInsert = Database["public"]["Tables"]["devices"]["Insert"]
+export type DeviceUpdate = Database["public"]["Tables"]["devices"]["Update"]
+
+export interface DeviceType {
   id: string
   name: string
   serial_number: string
@@ -560,4 +566,138 @@ export const serverDeviceService = {
       readings24h: readings24h || 0,
     }
   },
+}
+
+export async function getDevices(userId: string) {
+  const supabase = createServerSupabaseClient()
+
+  const { data, error } = await supabase
+    .from("devices")
+    .select("*, categories(*)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching devices:", error)
+    throw new Error("Failed to fetch devices")
+  }
+
+  return data
+}
+
+export async function getDeviceById(id: string, userId: string) {
+  const supabase = createServerSupabaseClient()
+
+  const { data, error } = await supabase
+    .from("devices")
+    .select("*, categories(*)")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single()
+
+  if (error) {
+    console.error("Error fetching device:", error)
+    throw new Error("Failed to fetch device")
+  }
+
+  return data
+}
+
+export async function createDevice(device: DeviceInsert) {
+  const supabase = createServerSupabaseClient()
+
+  const { data, error } = await supabase.from("devices").insert(device).select().single()
+
+  if (error) {
+    console.error("Error creating device:", error)
+    throw new Error("Failed to create device")
+  }
+
+  return data
+}
+
+export async function updateDevice(id: string, device: DeviceUpdate, userId: string) {
+  const supabase = createServerSupabaseClient()
+
+  // First check if the device belongs to the user
+  const { data: existingDevice } = await supabase
+    .from("devices")
+    .select("id")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single()
+
+  if (!existingDevice) {
+    throw new Error("Device not found or you do not have permission to update it")
+  }
+
+  const { data, error } = await supabase.from("devices").update(device).eq("id", id).select().single()
+
+  if (error) {
+    console.error("Error updating device:", error)
+    throw new Error("Failed to update device")
+  }
+
+  return data
+}
+
+export async function deleteDevice(id: string, userId: string) {
+  const supabase = createServerSupabaseClient()
+
+  // First check if the device belongs to the user
+  const { data: existingDevice } = await supabase
+    .from("devices")
+    .select("id")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .single()
+
+  if (!existingDevice) {
+    throw new Error("Device not found or you do not have permission to delete it")
+  }
+
+  const { error } = await supabase.from("devices").delete().eq("id", id)
+
+  if (error) {
+    console.error("Error deleting device:", error)
+    throw new Error("Failed to delete device")
+  }
+
+  return true
+}
+
+export async function getDeviceReadings(deviceId: string, limit = 100) {
+  const supabase = createServerSupabaseClient()
+
+  const { data, error } = await supabase
+    .from("device_readings")
+    .select("*")
+    .eq("device_id", deviceId)
+    .order("timestamp", { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error("Error fetching device readings:", error)
+    throw new Error("Failed to fetch device readings")
+  }
+
+  return data
+}
+
+export async function getDeviceAlerts(deviceId: string, limit = 100) {
+  const supabase = createServerSupabaseClient()
+
+  const { data, error } = await supabase
+    .from("device_alerts")
+    .select("*")
+    .eq("device_id", deviceId)
+    .order("timestamp", { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    console.error("Error fetching device alerts:", error)
+    throw new Error("Failed to fetch device alerts")
+  }
+
+  return data
 }
