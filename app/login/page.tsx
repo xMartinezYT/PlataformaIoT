@@ -2,49 +2,23 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { CheckCircle, AlertCircle, Loader2 } from "lucide-react"
-import { useAuth } from "@/contexts/auth-context"
+import { AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { supabase } from "@/lib/supabase/client"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [registrationSuccess, setRegistrationSuccess] = useState(false)
-  const [passwordResetSuccess, setPasswordResetSuccess] = useState(false)
-
-  const { signIn, user } = useAuth()
   const router = useRouter()
-  const searchParams = useSearchParams()
-
-  // Redirect if user is already logged in
-  useEffect(() => {
-    if (user) {
-      console.log("User already logged in, redirecting to dashboard")
-      router.push("/dashboard")
-    }
-  }, [user, router])
-
-  useEffect(() => {
-    // Check for success messages from URL parameters
-    const registered = searchParams?.get("registered")
-    if (registered === "true") {
-      setRegistrationSuccess(true)
-    }
-
-    const reset = searchParams?.get("reset")
-    if (reset === "true") {
-      setPasswordResetSuccess(true)
-    }
-  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,20 +27,30 @@ export default function LoginPage() {
     console.log("Login form submitted with email:", email)
 
     try {
-      const { error } = await signIn(email, password)
+      // Direct Supabase authentication
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
       if (error) {
-        console.error("Login error from signIn:", error.message)
+        console.error("Login error:", error.message)
         throw new Error(error.message || "Failed to sign in")
       }
 
-      console.log("Login successful, redirecting...")
-      // Get redirect URL or default to dashboard
-      const redirectTo = searchParams?.get("redirect") || "/dashboard"
+      console.log("Login successful, user:", data.user?.id)
 
-      // Force a router navigation
-      router.push(redirectTo)
-      router.refresh()
+      // Use multiple navigation methods for redundancy
+      console.log("Redirecting to dashboard...")
+
+      // Method 1: Next.js router
+      router.push("/dashboard")
+
+      // Method 2: Direct window location (as fallback)
+      setTimeout(() => {
+        console.log("Fallback redirect executing...")
+        window.location.href = "/dashboard"
+      }, 500)
     } catch (err: any) {
       console.error("Login error in catch block:", err.message)
       setError(err.message || "An error occurred during sign in")
@@ -86,23 +70,6 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Success messages */}
-          {registrationSuccess && (
-            <Alert variant="success" className="bg-green-50 text-green-800 border-green-200">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>¡Registro exitoso! Ahora puedes iniciar sesión.</AlertDescription>
-            </Alert>
-          )}
-
-          {passwordResetSuccess && (
-            <Alert variant="success" className="bg-green-50 text-green-800 border-green-200">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                ¡Contraseña restablecida con éxito! Ahora puedes iniciar sesión con tu nueva contraseña.
-              </AlertDescription>
-            </Alert>
-          )}
-
           {/* Error message */}
           {error && (
             <Alert variant="destructive">
