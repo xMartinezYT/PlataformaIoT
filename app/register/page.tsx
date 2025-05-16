@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react"
+import { AlertCircle, Loader2 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,9 +20,8 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
 
-  const { signUp } = useAuth()
+  const { register } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -37,26 +36,16 @@ export default function RegisterPage() {
       return
     }
 
-    // Validate password length
-    if (password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres")
+    // Validate password strength
+    if (password.length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres")
       setIsLoading(false)
       return
     }
 
     try {
-      const { error, user } = await signUp(email, password, name)
-
-      if (error) {
-        throw new Error(error.message || "Failed to sign up")
-      }
-
-      setSuccess(true)
-
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        router.push("/login?registered=true")
-      }, 2000)
+      await register(email, password, name)
+      router.push("/login?registered=true")
     } catch (err: any) {
       setError(err.message || "An error occurred during registration")
     } finally {
@@ -73,14 +62,6 @@ export default function RegisterPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Success message */}
-          {success && (
-            <Alert variant="success" className="bg-green-50 text-green-800 border-green-200">
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>¡Registro exitoso! Redirigiendo al inicio de sesión...</AlertDescription>
-            </Alert>
-          )}
-
           {/* Error message */}
           {error && (
             <Alert variant="destructive">
@@ -91,15 +72,15 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nombre</Label>
+              <Label htmlFor="name">Nombre Completo</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder="Tu nombre"
+                placeholder="Juan Pérez"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                disabled={isLoading || success}
+                disabled={isLoading}
               />
             </div>
 
@@ -112,7 +93,7 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                disabled={isLoading || success}
+                disabled={isLoading}
               />
             </div>
 
@@ -124,9 +105,8 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                disabled={isLoading || success}
+                disabled={isLoading}
               />
-              <p className="text-xs text-gray-500">Debe tener al menos 6 caracteres</p>
             </div>
 
             <div className="space-y-2">
@@ -137,11 +117,11 @@ export default function RegisterPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                disabled={isLoading || success}
+                disabled={isLoading}
               />
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading || success}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -158,7 +138,7 @@ export default function RegisterPage() {
           <div className="text-center text-sm">
             ¿Ya tienes una cuenta?{" "}
             <Link href="/login" className="text-blue-500 hover:text-blue-700">
-              Inicia sesión
+              Iniciar Sesión
             </Link>
           </div>
 
