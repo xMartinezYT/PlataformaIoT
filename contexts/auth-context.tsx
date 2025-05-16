@@ -40,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) {
           console.error("Error loading user:", error.message)
         } else if (user) {
+          console.log("User found in session:", user)
           setUser({
             id: user.id,
             email: user.email || "",
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Set up auth state change listener
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("Auth state changed:", event, session?.user?.id)
       if (event === "SIGNED_IN" && session?.user) {
         setUser({
           id: session.user.id,
@@ -78,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     setLoading(true)
     setError(null)
+    console.log("Attempting to sign in with:", email)
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -86,10 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       if (error) {
+        console.error("Sign in error:", error.message)
         setError(error.message)
         return { error }
       }
 
+      console.log("Sign in successful:", data.user?.id)
       if (data.user) {
         setUser({
           id: data.user.id,
@@ -97,10 +102,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: data.user.user_metadata?.name || null,
           role: data.user.user_metadata?.role || "user",
         })
+
+        // Force a router navigation after successful login
+        setTimeout(() => {
+          router.push("/dashboard")
+          router.refresh()
+        }, 100)
       }
 
       return {}
     } catch (error: any) {
+      console.error("Unexpected sign in error:", error)
       setError(error.message || "An error occurred during sign in")
       return { error: { message: error.message || "An error occurred during sign in" } }
     } finally {
@@ -135,6 +147,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: data.user.user_metadata?.name || null,
           role: data.user.user_metadata?.role || "user",
         })
+
+        // Force a router navigation after successful registration
+        setTimeout(() => {
+          router.push("/dashboard")
+          router.refresh()
+        }, 100)
       }
     } catch (error: any) {
       setError(error.message || "An error occurred during registration")

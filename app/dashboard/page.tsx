@@ -1,27 +1,32 @@
-import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { RealTimeDashboard } from "@/components/dashboard/real-time-dashboard"
+"use client"
 
-export const dynamic = "force-dynamic"
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/contexts/auth-context"
 
-export default async function DashboardPage() {
-  const supabase = createServerSupabaseClient()
+export default function DashboardPage() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
 
-  // Get the current user
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login")
+    }
+  }, [user, loading, router])
 
-  if (!session) {
-    return (
-      <div className="container mx-auto py-10">
-        <p>Please log in to view the dashboard.</p>
-      </div>
-    )
+  if (loading) {
+    return <div>Loading...</div>
+  }
+
+  if (!user) {
+    return null // Will redirect in the useEffect
   }
 
   return (
-    <div className="container mx-auto py-10">
-      <RealTimeDashboard userId={session.user.id} />
+    <div>
+      <h1>Dashboard</h1>
+      <p>Welcome, {user.name || user.email}!</p>
+      {/* Rest of your dashboard content */}
     </div>
   )
 }

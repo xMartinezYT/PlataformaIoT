@@ -21,9 +21,17 @@ export default function LoginPage() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false)
   const [passwordResetSuccess, setPasswordResetSuccess] = useState(false)
 
-  const { signIn } = useAuth()
+  const { signIn, user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      console.log("User already logged in, redirecting to dashboard")
+      router.push("/dashboard")
+    }
+  }, [user, router])
 
   useEffect(() => {
     // Check for success messages from URL parameters
@@ -42,18 +50,25 @@ export default function LoginPage() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    console.log("Login form submitted with email:", email)
 
     try {
       const { error } = await signIn(email, password)
 
       if (error) {
+        console.error("Login error from signIn:", error.message)
         throw new Error(error.message || "Failed to sign in")
       }
 
+      console.log("Login successful, redirecting...")
       // Get redirect URL or default to dashboard
       const redirectTo = searchParams?.get("redirect") || "/dashboard"
+
+      // Force a router navigation
       router.push(redirectTo)
+      router.refresh()
     } catch (err: any) {
+      console.error("Login error in catch block:", err.message)
       setError(err.message || "An error occurred during sign in")
     } finally {
       setIsLoading(false)
