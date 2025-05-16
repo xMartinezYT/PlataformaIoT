@@ -1,33 +1,31 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { AlertCircle, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { supabase } from "@/lib/supabase/client"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     setIsLoading(true)
-    setError(null)
-    console.log("Login form submitted with email:", email)
+    setError("")
+
+    console.log("Login attempt with email:", email)
 
     try {
-      // Direct Supabase authentication
+      // Create a new Supabase client
+      const supabase = createClientComponentClient()
+
+      // Attempt to sign in
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -35,26 +33,19 @@ export default function LoginPage() {
 
       if (error) {
         console.error("Login error:", error.message)
-        throw new Error(error.message || "Failed to sign in")
+        setError(error.message)
+        setIsLoading(false)
+        return
       }
 
-      console.log("Login successful, user:", data.user?.id)
-
-      // Use multiple navigation methods for redundancy
+      console.log("Login successful, user:", data.user.id)
       console.log("Redirecting to dashboard...")
 
-      // Method 1: Next.js router
-      router.push("/dashboard")
-
-      // Method 2: Direct window location (as fallback)
-      setTimeout(() => {
-        console.log("Fallback redirect executing...")
-        window.location.href = "/dashboard"
-      }, 500)
-    } catch (err: any) {
-      console.error("Login error in catch block:", err.message)
-      setError(err.message || "An error occurred during sign in")
-    } finally {
+      // Hard redirect to dashboard
+      window.location.href = "/dashboard"
+    } catch (err) {
+      console.error("Unexpected error:", err)
+      setError(err.message || "An unexpected error occurred")
       setIsLoading(false)
     }
   }
@@ -70,10 +61,8 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {/* Error message */}
           {error && (
             <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -93,12 +82,7 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Contraseña</Label>
-                <Link href="/forgot-password" className="text-sm text-blue-500 hover:text-blue-700">
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
+              <Label htmlFor="password">Contraseña</Label>
               <Input
                 id="password"
                 type="password"
@@ -110,29 +94,13 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Iniciando sesión...
-                </>
-              ) : (
-                "Iniciar Sesión"
-              )}
+              {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
         </CardContent>
 
-        <CardFooter className="flex flex-col space-y-4">
-          <div className="text-center text-sm">
-            ¿No tienes una cuenta?{" "}
-            <Link href="/register" className="text-blue-500 hover:text-blue-700">
-              Regístrate
-            </Link>
-          </div>
-
-          <Link href="/" className="text-center text-sm text-blue-500 hover:text-blue-700">
-            Volver al inicio
-          </Link>
+        <CardFooter className="text-center">
+          <p className="text-sm text-gray-500">¿No tienes una cuenta? Contacta al administrador del sistema.</p>
         </CardFooter>
       </Card>
     </div>
